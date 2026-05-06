@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>물량 산출기 — 디바이스 선택</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    height: 100%;
+    font-family: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  body {
+    background: #0A0E1A; color: #E6E8EE;
+    min-height: 100vh; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 40px 24px; position: relative; overflow-x: hidden;
+  }
+  body::before {
+    content: ''; position: fixed; top: -10%; left: -5%;
+    width: 50vw; height: 50vw;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.25) 0%, transparent 65%);
+    pointer-events: none; z-index: 0;
+    animation: drift 22s ease-in-out infinite;
+  }
+  body::after {
+    content: ''; position: fixed; bottom: -10%; right: -5%;
+    width: 55vw; height: 55vw;
+    background: radial-gradient(circle, rgba(6, 182, 212, 0.20) 0%, transparent 65%);
+    pointer-events: none; z-index: 0;
+    animation: drift 28s ease-in-out infinite reverse;
+  }
+  @keyframes drift { 0%,100%{transform:translate(0,0);} 50%{transform:translate(5%,5%);} }
+  .grid-overlay {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none; z-index: 0;
+  }
+  .container { position: relative; z-index: 1; max-width: 1100px; width: 100%; display: flex; flex-direction: column; align-items: center; gap: 48px; }
+  .brand-logo {
+    width: 58px; height: 58px; border-radius: 16px;
+    background: linear-gradient(135deg, #2563EB, #06B6D4);
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 10px 30px rgba(37, 99, 235, 0.4);
+    margin-bottom: 8px;
+  }
+  .brand-name { font-size: 13px; font-weight: 700; letter-spacing: 4px; color: #7A8599; text-transform: uppercase; margin-bottom: 10px; }
+  .title {
+    font-size: 42px; font-weight: 800; letter-spacing: -1.2px; text-align: center;
+    background: linear-gradient(135deg, #FFFFFF 0%, #B8C4E0 100%);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent; margin-bottom: 10px;
+  }
+  .subtitle { font-size: 14px; color: #7A8599; text-align: center; letter-spacing: -0.2px; }
+  .devices { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; width: 100%; max-width: 720px; }
+  .device-card {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.01) 100%);
+    border: 1.5px solid rgba(6, 182, 212, 0.55);
+    border-radius: 24px; padding: 32px 28px 28px;
+    cursor: pointer; transition: all .3s cubic-bezier(.2,.8,.2,1);
+    text-decoration: none; color: inherit; overflow: hidden;
+    box-shadow:
+      0 0 0 1px rgba(6, 182, 212, 0.15),
+      0 0 20px rgba(6, 182, 212, 0.25),
+      0 0 40px rgba(37, 99, 235, 0.15),
+      inset 0 0 20px rgba(6, 182, 212, 0.06);
+  }
+  .device-card::before {
+    content: ''; position: absolute; inset: 0; border-radius: 24px;
+    background: linear-gradient(135deg, rgba(6, 182, 212, 0.18), transparent 55%);
+    opacity: 0; transition: opacity .3s; pointer-events: none;
+  }
+  .device-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(34, 211, 238, 0.85);
+    box-shadow:
+      0 0 0 1px rgba(34, 211, 238, 0.35),
+      0 0 28px rgba(6, 182, 212, 0.55),
+      0 0 60px rgba(37, 99, 235, 0.35),
+      0 20px 40px rgba(0, 0, 0, 0.3),
+      inset 0 0 24px rgba(34, 211, 238, 0.1);
+  }
+  .device-card:hover::before { opacity: 1; }
+  .device-visual {
+    width: 100%; height: 180px; background: rgba(0, 0, 0, 0.25);
+    border-radius: 16px; margin-bottom: 24px;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid rgba(255,255,255,0.04); position: relative; overflow: hidden;
+  }
+  .device-visual::after {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 30% 20%, rgba(37,99,235,0.15), transparent 60%);
+  }
+  .device-visual svg { position: relative; z-index: 1; }
+  .device-name { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; color: #FFFFFF; margin-bottom: 6px; }
+  .device-desc { font-size: 12.5px; color: #7A8599; letter-spacing: -0.1px; line-height: 1.5; margin-bottom: 16px; }
+  .device-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+  .spec-chip { font-size: 10.5px; font-weight: 600; letter-spacing: 0.2px; color: #8A95AE; background: rgba(255,255,255,0.05); padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.06); }
+  .spec-chip.accent { color: #22D3EE; background: rgba(6, 182, 212, 0.1); border-color: rgba(6, 182, 212, 0.25); }
+  .footer-hint { font-size: 12px; color: #5A6477; letter-spacing: -0.1px; }
+  @media (max-width: 640px) { .devices { grid-template-columns: 1fr; } .title { font-size: 32px; } }
+  .back-link {
+    position: fixed; top: 24px; left: 24px; z-index: 10;
+    display: flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #B8C4E0;
+    font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif;
+    font-size: 12.5px; font-weight: 600; text-decoration: none;
+    letter-spacing: -0.1px; transition: all .2s;
+    backdrop-filter: blur(10px);
+  }
+  .back-link:hover { background: rgba(255,255,255,0.08); border-color: rgba(6,182,212,0.4); color: #E6E8EE; }
+</style>
+</head>
+<body>
+  <a href="../" class="back-link">
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+      <path d="M10 2L4 8l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    프로토타입 허브
+  </a>
+
+  <div class="grid-overlay"></div>
+
+  <div class="container">
+    <div style="display:flex; flex-direction:column; align-items:center;">
+      <div class="brand-logo">
+        <svg width="30" height="30" viewBox="0 0 24 24" fill="none">
+          <rect x="3" y="3" width="18" height="18" rx="3" stroke="#fff" stroke-width="2" fill="none"/>
+          <path d="M4 7h16M4 12h16M4 17h10" stroke="#fff" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="brand-name">INSOL · Quantity Calculator</div>
+      <h1 class="title">AI 물량 산출기</h1>
+      <p class="subtitle">평면 이미지에서 자재 소요량까지, 한 번에</p>
+    </div>
+
+    <div class="devices">
+      <a href="./phone/" class="device-card">
+        <div class="device-visual">
+          <svg width="60" height="110" viewBox="0 0 60 110" fill="none">
+            <rect x="2" y="2" width="56" height="106" rx="11" stroke="#22D3EE" stroke-width="2" fill="rgba(6,182,212,0.05)"/>
+            <rect x="7" y="7" width="46" height="96" rx="6" fill="rgba(255,255,255,0.03)" stroke="rgba(34,211,238,0.3)" stroke-width="0.5"/>
+            <circle cx="30" cy="10" r="1.5" fill="#22D3EE"/>
+            <rect x="23" y="99" width="14" height="1.5" rx="0.75" fill="#22D3EE"/>
+          </svg>
+        </div>
+        <div class="device-name">폰</div>
+        <div class="device-desc">갤럭시 S 울트라 프레임<br>세로형 모바일 프로토타입</div>
+        <div class="device-meta">
+          <span class="spec-chip accent">402 × 874</span>
+          <span class="spec-chip">Galaxy</span>
+          <span class="spec-chip">세로형</span>
+        </div>
+      </a>
+
+      <a href="./tablet/" class="device-card">
+        <div class="device-visual">
+          <svg width="120" height="90" viewBox="0 0 120 90" fill="none">
+            <rect x="2" y="2" width="116" height="86" rx="8" stroke="#22D3EE" stroke-width="2" fill="rgba(6,182,212,0.05)"/>
+            <rect x="8" y="8" width="104" height="74" rx="4" fill="rgba(255,255,255,0.03)" stroke="rgba(34,211,238,0.3)" stroke-width="0.5"/>
+            <circle cx="60" cy="86.5" r="1" fill="#22D3EE"/>
+            <rect x="16" y="16" width="48" height="58" rx="2" fill="rgba(34,211,238,0.08)"/>
+            <rect x="68" y="16" width="36" height="28" rx="2" fill="rgba(34,211,238,0.05)"/>
+            <rect x="68" y="48" width="36" height="26" rx="2" fill="rgba(34,211,238,0.05)"/>
+          </svg>
+        </div>
+        <div class="device-name">태블릿</div>
+        <div class="device-desc">가로형 태블릿 레이아웃<br>도면 + 편집패널 2컬럼 UI</div>
+        <div class="device-meta">
+          <span class="spec-chip accent">1200 × 820</span>
+          <span class="spec-chip">Galaxy Tab</span>
+          <span class="spec-chip">가로형</span>
+        </div>
+      </a>
+    </div>
+
+    <div class="footer-hint">
+      <span>Y&C SmartApps · Insol Platform Prototype · 2026</span>
+    </div>
+  </div>
+</body>
+</html>

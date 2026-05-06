@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>물량 산출기 — Tablet (Galaxy Tab)</title>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<style>
+  @import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
+  * { box-sizing: border-box; }
+  html, body { background: #0A0E1A; min-height: 100%; margin: 0; font-family: 'Pretendard Variable', Pretendard, -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+  .stage { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; position: relative; overflow: auto; }
+  .stage::before { content: ''; position: fixed; top: -10%; left: -5%; width: 50vw; height: 50vw; background: radial-gradient(circle, rgba(37,99,235,0.18) 0%, transparent 65%); pointer-events: none; z-index: 0; }
+  .stage::after { content: ''; position: fixed; bottom: -10%; right: -5%; width: 55vw; height: 55vw; background: radial-gradient(circle, rgba(6,182,212,0.15) 0%, transparent 65%); pointer-events: none; z-index: 0; }
+  .device-wrap { position: relative; z-index: 1; }
+  .back-link { position: fixed; top: 24px; left: 24px; z-index: 10; display: flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); color: #B8C4E0; font-family: 'Pretendard Variable', Pretendard, system-ui, sans-serif; font-size: 12.5px; font-weight: 600; text-decoration: none; letter-spacing: -0.1px; transition: all .2s; backdrop-filter: blur(10px); }
+  .back-link:hover { background: rgba(255,255,255,0.08); border-color: rgba(6,182,212,0.4); color: #E6E8EE; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+</style>
+</head>
+<body>
+<a href="../" class="back-link">
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+    <path d="M10 2L4 8l6 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </svg>
+  디바이스 선택
+</a>
+<div id="root"></div>
+
+<script type="text/babel" src="../phone/js/design-tokens.jsx"></script>
+<script type="text/babel" src="./js/tablet-frame.jsx"></script>
+<script type="text/babel" src="../phone/js/icons.jsx"></script>
+<script type="text/babel" src="../phone/js/qc-data.jsx"></script>
+<script type="text/babel" src="../phone/js/qc-logic.jsx"></script>
+<script type="text/babel" src="../phone/js/qc-floorplan.jsx"></script>
+<script type="text/babel" src="./js/tablet-shell.jsx"></script>
+<script type="text/babel" src="./js/tab-sites.jsx"></script>
+<script type="text/babel" src="./js/tab-upload.jsx"></script>
+<script type="text/babel" src="./js/tab-convert.jsx"></script>
+<script type="text/babel" src="./js/tab-review.jsx"></script>
+<script type="text/babel" src="./js/tab-confirm.jsx"></script>
+<script type="text/babel" src="./js/tab-search.jsx"></script>
+
+<script type="text/babel" data-presets="react">
+function TabletApp() {
+  const [tab, setTab]     = React.useState('sites');
+  const [step, setStep]   = React.useState(1);
+  const [state, setState] = React.useState(qcCreateInitialState());
+  const [activeSite, setActiveSite] = React.useState(null);
+  const [selectedRoomId, setSelectedRoomId] = React.useState(null);
+  const [globalQuery, setGlobalQuery] = React.useState('');
+  const [toast, setToast] = React.useState('');
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
+
+  const handleSiteSelect = (site) => {
+    setActiveSite(site);
+    if (site.hasQuantity)      { setStep(4); setTab('confirm'); }
+    else if (site.hasDrawing)  { setStep(3); setTab('review'); }
+    else                       { setStep(1); setTab('upload'); }
+  };
+  const handleUploaded   = () => { setStep(2); setTab('convert'); };
+  const handleConverted  = () => { setStep(3); setTab('review'); };
+  const handleReviewDone = () => { setStep(4); setTab('confirm'); };
+
+  const updateState = (fn) => setState(prev => ({ ...prev, ...fn(prev) }));
+  const toggleExpansion = (k, v) => updateState(s => ({ expansionState: { ...s.expansionState, [k]: v } }));
+  const updateDim = (roomId, wMm, hMm) => updateState(s => ({ dimOverrides: { ...s.dimOverrides, [roomId]: { wMm, hMm } } }));
+  const updateRoomMat = (roomId, matKey, qty) => updateState(s => ({
+    roomMatOverrides: { ...s.roomMatOverrides, [roomId]: { ...(s.roomMatOverrides[roomId] || {}), [matKey]: qty } }
+  }));
+  const updateMat = (matKey, qty) => updateState(s => ({ matOverrides: { ...s.matOverrides, [matKey]: qty } }));
+  const updateFinish = (k, v) => updateState(s => ({ finishOverrides: { ...s.finishOverrides, [k]: v } }));
+
+  const handleSave = (site) => { showToast('물량이 현장에 저장되었습니다'); setTab('sites'); setStep(1); };
+
+  const handleTabChange = (newTab) => {
+    setTab(newTab);
+    if (newTab === 'upload')  setStep(1);
+    if (newTab === 'convert') setStep(2);
+    if (newTab === 'review')  setStep(3);
+    if (newTab === 'confirm') setStep(4);
+  };
+
+  return (
+    <div className="stage">
+      <InstallGlobalStyles/>
+      <div className="device-wrap">
+        <TabletDevice width={1200} height={820}>
+          <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <TabletTopBar
+              activeSite={activeSite}
+              globalQuery={globalQuery} setGlobalQuery={v => { setGlobalQuery(v); if (v && tab !== 'search') setTab('search'); }}
+              onConfirm={handleReviewDone}
+              showConfirm={tab === 'review'}
+            />
+            <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
+              <TabletSideBar tab={tab} onChange={handleTabChange} step={step}/>
+              <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                {tab === 'sites'   && <TabSites sites={QC_SITES} onSelect={handleSiteSelect}/>}
+                {tab === 'upload'  && <TabUpload activeSite={activeSite} sites={QC_SITES} onUploaded={handleUploaded} onPickSite={handleSiteSelect}/>}
+                {tab === 'convert' && <TabConvert activeSite={activeSite} onDone={handleConverted}/>}
+                {tab === 'review'  && <TabReview state={state} activeSite={activeSite}
+                  selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId}
+                  onToggleExpansion={toggleExpansion} onUpdateDim={updateDim}
+                  onUpdateRoomMat={updateRoomMat} onConfirm={handleReviewDone}/>}
+                {tab === 'confirm' && <TabConfirm state={state} activeSite={activeSite} sites={QC_SITES}
+                  onUpdateMat={updateMat} onUpdateFinish={updateFinish} onSave={handleSave}/>}
+                {tab === 'search'  && <TabSearch query={globalQuery} setQuery={setGlobalQuery}
+                  sites={QC_SITES} onSiteSelect={handleSiteSelect}/>}
+              </div>
+            </div>
+          </div>
+
+          {toast && (
+            <div style={{
+              position: 'absolute', left: '50%', bottom: 40, transform: 'translateX(-50%)',
+              background: 'rgba(14,17,22,0.92)', color: '#fff',
+              padding: '12px 22px', borderRadius: 999,
+              fontSize: 13, fontWeight: 500, letterSpacing: -0.2,
+              zIndex: 100, animation: 'qc-slide-up .22s ease-out',
+            }}>{toast}</div>
+          )}
+        </TabletDevice>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<TabletApp/>);
+</script>
+</body>
+</html>
