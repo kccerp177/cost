@@ -4,10 +4,12 @@
 function qcCreateInitialState() {
   return {
     expansionState: { living: true, bed3: false },
-    dimOverrides:    {}, // { roomId: { wMm, hMm } } — 사용자가 수정한 치수
+    dimOverrides:    {}, // { roomId: { wMm, hMm } }
     finishOverrides: { living_tv_wall: 'wallpaper', entrance_floor: 'floor_tile' },
-    matOverrides:    {}, // Step 4 전체 자재 수량 오버라이드 { matKey: qty }
+    matOverrides:    {}, // Step 4 전체 자재 수량 오버라이드
     roomMatOverrides: {}, // Step 3 공간별 수량 오버라이드 { roomId: { matKey: qty } }
+    wallOverrides:   {}, // 공간별 벽 오버라이드 { roomId: { top/right/bottom/left: { lengthMm, wallpaper } } }
+    floorOverrides:  {}, // 공간별 바닥 자재 오버라이드 { roomId: 'floor_wood'|'floor_tile'|'floor_marble' }
   };
 }
 
@@ -62,10 +64,15 @@ function qcGetCurrentRooms(state) {
   });
 }
 
+// wallpaper 옵션 값 → 자재 키 변환
+const QC_WALLPAPER_MAT = { silk: 'wallpaper', hanji: 'wall_hanji', paint: 'wall_paint', tile: 'wall_tile' };
+
 // 개별 공간 자재 계산
 function qcCalcMaterialsForRoom(room, state) {
-  const finishOv = state.finishOverrides || {};
+  const finishOv  = state.finishOverrides  || {};
   const roomMatOv = (state.roomMatOverrides || {})[room.id] || {};
+  const floorOv   = state.floorOverrides   || {};
+  const wallOv    = (state.wallOverrides   || {})[room.id] || {};
   const f = QC_ROOM_FINISH[room.id];
   const mats = {};
 
@@ -79,34 +86,53 @@ function qcCalcMaterialsForRoom(room, state) {
 
   if (!f) return mats;
 
-  if (room.id === 'entrance') {
-    add(finishOv.entrance_floor === 'marble' ? 'floor_marble' : 'floor_tile', room.floor);
+  // ─── 바닥 — floorOverrides 우선 ────────────────────────
+  const defaultFloor = room.id.startsWith('bath') ? 'floor_tile' : f.floor;
+  add(floorOv[room.id] || defaultFloor, room.floor);
+
+  // ─── 벽 — wallOverrides wallpaper 타입 기반 ────────────
+  const defaultWallType = room.id.startsWith('bath') ? 'tile' : 'silk';
+  const wks = ['top', 'right', 'bottom', 'left'];
+  const wallTypes = wks.map(wk => wallOv[wk]?.wallpaper || defaultWallType);
+  const allSame   = wallTypes.every(t => t === wallTypes[0]);
+
+  if (allSame) {
+    const matKey = QC_WALLPAPER_MAT[wallTypes[0]] || f.wall;
+    if (room.id === 'living') {
+      const tvA = 6.0;
+      const tk = finishOv.living_tv_wall === 'marble' ? 'wall_marble'
+               : finishOv.living_tv_wall === 'paint'  ? 'wall_paint'
+               : matKey;
+      add(tk, tvA);
+      add(matKey, room.wall - tvA);
+    } else {
+      add(matKey, room.wall);
+    }
   } else {
-    add(f.floor, room.floor);
+    // 벽별 다른 타입 → 각 벽 길이 비례로 면적 배분
+    const CEIL_H = 2.4;
+    const lens = wks.map(wk =>
+      (wallOv[wk]?.lengthMm || ((wk === 'top' || wk === 'bottom') ? (room._wMm || 0) : (room._hMm || 0))) / 1000
+    );
+    const totalLen = lens.reduce((s, l) => s + l, 0);
+    wks.forEach((wk, i) => {
+      const area = totalLen > 0 ? (lens[i] / totalLen) * room.wall : 0;
+      add(QC_WALLPAPER_MAT[wallTypes[i]] || f.wall, area);
+    });
   }
 
-  if (room.id === 'living') {
-    const tvA = 6.0;
-    const restA = room.wall - tvA;
-    const tk = finishOv.living_tv_wall === 'marble' ? 'wall_marble'
-             : finishOv.living_tv_wall === 'paint'  ? 'wall_paint'
-             : 'wallpaper';
-    add(tk, tvA);
-    add(f.wall, restA);
-  } else {
-    add(f.wall, room.wall);
-  }
-
+  // ─── 천장 ──────────────────────────────────────────────
   add(f.ceiling, room.ceiling);
 
-  if (room.id.indexOf('bath') !== 0) {
+  // ─── 부자재 ────────────────────────────────────────────
+  if (!room.id.startsWith('bath')) {
     add('molding', room.perimeter);
     add('baseboard', room.perimeter - room.doors * 0.9);
   }
   if (room.doors > 0) add('door', room.doors);
-  if (room.id.indexOf('bath') === 0) add('bath_fixture', 1);
+  if (room.id.startsWith('bath')) add('bath_fixture', 1);
 
-  // Step 3에서 공간별 수량 오버라이드 적용
+  // 공간별 수량 오버라이드 적용
   Object.keys(roomMatOv).forEach(k => {
     if (mats[k]) mats[k].qty = roomMatOv[k];
   });
@@ -188,4 +214,5 @@ function qcSortMaterialEntries(mats) {
 Object.assign(window, {
   qcCreateInitialState, qcGetCurrentRooms,
   qcCalcMaterialsForRoom, qcCalcMaterials, qcSortMaterialEntries,
+  QC_WALLPAPER_MAT,
 });

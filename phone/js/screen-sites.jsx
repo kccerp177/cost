@@ -2,6 +2,12 @@
 
 function SitesScreen({ sites, onSelect, onNew, onBackToMode }) {
   const T = window.TOKENS;
+  const [q, setQ] = React.useState('');
+  // 최신 등록순(regOrder 내림차순)으로 정렬
+  const sorted = [...sites].sort((a, b) => (b.regOrder || 0) - (a.regOrder || 0));
+  const filtered = q.trim()
+    ? sorted.filter(s => s.name.includes(q) || s.addr.includes(q))
+    : sorted;
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: T.bg }}>
       {/* 모드 표시 + 변경 */}
@@ -30,27 +36,36 @@ function SitesScreen({ sites, onSelect, onNew, onBackToMode }) {
       <div style={{
         padding: '14px 18px 12px',
         background: '#fff', borderBottom: `1px solid ${T.lineSoft}`,
-        display: 'flex', alignItems: 'center', gap: 10,
       }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>현장</div>
-          <div style={{ fontSize: 11.5, color: T.ink3, marginTop: 2 }}>도면 · 물량 기록이 저장된 현장 {sites.length}곳</div>
-        </div>
-        <button onClick={onNew} style={{
-          height: 34, padding: '0 14px', borderRadius: 10,
-          background: T.brand.primary, color: '#fff',
-          fontSize: 12.5, fontWeight: 700, letterSpacing: -0.2,
-          border: 'none', cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', gap: 4,
-        }}>
-          <Icon name="plus" size={13} color="#fff" strokeWidth={2.4}/>
-          새 산출
-        </button>
+        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>현장</div>
+        <div style={{ fontSize: 11.5, color: T.ink3, marginTop: 2 }}>도면 · 물량 기록이 저장된 현장 {sites.length}곳</div>
       </div>
-      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 14 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {sites.map(site => <SiteCard key={site.id} site={site} onClick={() => onSelect(site)}/>)}
+      {/* 검색 */}
+      <div style={{ padding: '8px 14px 6px', background: '#fff', borderBottom: `1px solid ${T.lineSoft}` }}>
+        <div style={{ position: 'relative' }}>
+          <Icon name="search" size={14} color={T.ink4} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}/>
+          <input
+            type="text" value={q} onChange={e => setQ(e.target.value)}
+            placeholder="현장명 또는 주소 검색"
+            style={{
+              width: '100%', height: 36, padding: '0 10px 0 32px', borderRadius: 10,
+              border: `1px solid ${T.line}`, background: T.surfaceAlt,
+              fontSize: 12.5, outline: 'none', fontFamily: 'inherit',
+            }}
+          />
         </div>
+      </div>
+
+      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: '10px 14px 14px' }}>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: T.ink3, fontSize: 13 }}>
+            검색 결과가 없습니다
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {filtered.map(site => <SiteCard key={site.id} site={site} onClick={() => onSelect(site)}/>)}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -66,7 +81,7 @@ function SiteCard({ site, onClick }) {
 
   return (
     <div onClick={onClick} style={{
-      background: '#fff', borderRadius: 14, padding: 14,
+      background: '#fff', borderRadius: 12, padding: '10px 12px',
       border: `1px solid ${T.lineSoft}`, cursor: 'pointer',
       transition: 'all .15s', fontFamily: 'inherit',
     }}
@@ -74,27 +89,25 @@ function SiteCard({ site, onClick }) {
     onMouseLeave={e => { e.currentTarget.style.borderColor = T.lineSoft; e.currentTarget.style.boxShadow = 'none'; }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <div style={{
-          width: 40, height: 40, borderRadius: 10,
+          width: 36, height: 36, borderRadius: 9,
           background: site.thumb + '22',
           display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
         }}>
-          <Icon name="building" size={19} color={site.thumb} strokeWidth={2}/>
+          <Icon name="building" size={17} color={site.thumb} strokeWidth={2}/>
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2 }}>{site.name}</div>
-          <div style={{ fontSize: 11, color: T.ink3, marginTop: 2, display: 'flex', alignItems: 'center', gap: 6 }}>
-            <span>📍 {site.addr}</span>
-          </div>
+          <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: -0.2 }}>{site.name}</div>
+          <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>📍 {site.addr}</div>
         </div>
         <span style={{
-          fontSize: 10.5, fontWeight: 700, color: badge.color, background: badge.bg,
-          padding: '4px 9px', borderRadius: 999, flexShrink: 0,
+          fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg,
+          padding: '3px 8px', borderRadius: 999, flexShrink: 0,
         }}>{badge.text}</span>
       </div>
       <div style={{
-        marginTop: 10, paddingTop: 10, borderTop: `1px dashed ${T.lineSoft}`,
+        marginTop: 7, paddingTop: 7, borderTop: `1px dashed ${T.lineSoft}`,
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        fontSize: 11, color: T.ink3,
+        fontSize: 10.5, color: T.ink3,
       }}>
         <span>{site.size}</span>
         <span>{site.updatedAt}</span>

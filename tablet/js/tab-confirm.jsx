@@ -1,6 +1,6 @@
 // Tablet Confirm Tab — Step 4
 
-function TabConfirm({ state, activeSite, sites, onUpdateMat, onUpdateFinish, onSave }) {
+function TabConfirm({ state, activeSite, sites, onUpdateMat, onSave }) {
   const T = window.TOKENS;
   const rooms = qcGetCurrentRooms(state);
   const mats = qcCalcMaterials(state);
@@ -46,7 +46,7 @@ function TabConfirm({ state, activeSite, sites, onUpdateMat, onUpdateFinish, onS
             </div>
           </div>
 
-          {/* 우: 공간 면적표 + 마감재 변경 */}
+          {/* 우: 공간 면적표 */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div style={{ background: '#fff', borderRadius: 14, overflow: 'hidden', border: `1px solid ${T.lineSoft}` }}>
               <div style={{ padding: '11px 14px 8px', fontSize: 12.5, fontWeight: 700, color: T.ink2 }}>공간 면적표</div>
@@ -84,8 +84,6 @@ function TabConfirm({ state, activeSite, sites, onUpdateMat, onUpdateFinish, onS
                 <span style={{ textAlign: 'right' }}>{totalFloor.toFixed(1)}</span>
               </div>
             </div>
-
-            <FinishCard state={state} onUpdate={onUpdateFinish}/>
           </div>
         </div>
       </div>
@@ -136,45 +134,6 @@ function MatMini({ matKey, mat, onUpdate }) {
           }}/>
           <span style={{ fontSize: 10.5, fontWeight: 700, color: T.ink2 }}>{mat.unit}</span>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function FinishCard({ state, onUpdate }) {
-  const T = window.TOKENS;
-  const items = [
-    { key: 'living_tv_wall', label: '거실 TV벽', options: [
-      { v: 'wallpaper', n: '실크벽지' }, { v: 'marble', n: '대리석' }, { v: 'paint', n: '페인트' },
-    ]},
-    { key: 'entrance_floor', label: '현관 바닥', options: [
-      { v: 'floor_tile', n: '타일' }, { v: 'marble', n: '대리석' },
-    ]},
-  ];
-  return (
-    <div style={{ background: '#fff', borderRadius: 14, padding: 14, border: `1px solid ${T.lineSoft}` }}>
-      <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 10, color: T.ink2 }}>마감재 변경</div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 9 }}>
-        {items.map(it => (
-          <div key={it.key}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: T.ink3, marginBottom: 6 }}>{it.label}</div>
-            <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-              {it.options.map(op => {
-                const active = state.finishOverrides[it.key] === op.v;
-                return (
-                  <button key={op.v} onClick={() => onUpdate(it.key, op.v)} style={{
-                    padding: '5px 11px', borderRadius: 999,
-                    background: active ? T.brand.primary : '#fff',
-                    color: active ? '#fff' : T.ink2,
-                    border: `1px solid ${active ? T.brand.primary : T.line}`,
-                    fontSize: 11.5, fontWeight: active ? 700 : 500,
-                    cursor: 'pointer', fontFamily: 'inherit',
-                  }}>{op.n}</button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
       </div>
     </div>
   );

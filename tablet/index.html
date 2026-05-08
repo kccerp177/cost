@@ -31,37 +31,142 @@
 </a>
 <div id="root"></div>
 
-<script type="text/babel" src="../phone/js/design-tokens.jsx"></script>
-<script type="text/babel" src="./js/tablet-frame.jsx"></script>
-<script type="text/babel" src="../phone/js/icons.jsx"></script>
-<script type="text/babel" src="../phone/js/qc-data.jsx"></script>
-<script type="text/babel" src="../phone/js/qc-logic.jsx"></script>
-<script type="text/babel" src="../phone/js/qc-floorplan.jsx"></script>
-<script type="text/babel" src="./js/tablet-shell.jsx"></script>
-<script type="text/babel" src="./js/tab-sites.jsx"></script>
-<script type="text/babel" src="./js/tab-upload.jsx"></script>
-<script type="text/babel" src="./js/tab-convert.jsx"></script>
-<script type="text/babel" src="./js/tab-review.jsx"></script>
-<script type="text/babel" src="./js/tab-confirm.jsx"></script>
-<script type="text/babel" src="./js/tab-search.jsx"></script>
+<script type="text/babel" src="../phone/js/design-tokens.jsx?v=2"></script>
+<script type="text/babel" src="./js/tablet-frame.jsx?v=2"></script>
+<script type="text/babel" src="../phone/js/icons.jsx?v=2"></script>
+<script type="text/babel" src="../phone/js/qc-data.jsx?v=6"></script>
+<script type="text/babel" src="../phone/js/qc-logic.jsx?v=5"></script>
+<script type="text/babel" src="../phone/js/qc-floorplan.jsx?v=3"></script>
+<script type="text/babel" src="../phone/js/screen-mode.jsx?v=2"></script>
+<script type="text/babel" src="../phone/js/qc-simple-data.jsx?v=2"></script>
+<script type="text/babel" src="../phone/js/screen-simple.jsx?v=4"></script>
+<script type="text/babel" src="./js/tablet-shell.jsx?v=4"></script>
+<script type="text/babel" src="./js/tab-sites.jsx?v=4"></script>
+<script type="text/babel" src="./js/tab-upload.jsx?v=2"></script>
+<script type="text/babel" src="./js/tab-convert.jsx?v=2"></script>
+<script type="text/babel" src="./js/tab-review.jsx?v=4"></script>
+<script type="text/babel" src="./js/tab-confirm.jsx?v=2"></script>
+<script type="text/babel" src="./js/tab-search.jsx?v=2"></script>
+<script type="text/babel" src="./js/tab-settings.jsx?v=2"></script>
 
 <script type="text/babel" data-presets="react">
+
+// ─── 태블릿 전용 모드 선택 화면 ────────────────────────────
+function TabletModeSelect({ onSelect }) {
+  const T = window.TOKENS;
+  const cards = [
+    {
+      key: 'floorplan',
+      title: '도면변환 계산',
+      desc: '이미지를 도면으로 변환해 공간별 자동 산출',
+      accent: T.brand.primary,
+      accentSoft: T.brand.primarySoft,
+      preview: <FloorplanPreview/>,
+      recommended: true,
+    },
+    {
+      key: 'simple',
+      title: '단순계산',
+      desc: '치수만 입력해 빠르게 자재량 산출',
+      accent: T.brand.accent,
+      accentSoft: T.brand.accentSoft,
+      preview: <SimplePreview/>,
+      recommended: false,
+    },
+  ];
+
+  return (
+    <div style={{
+      flex: 1, display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center',
+      background: T.bg, padding: 48,
+    }}>
+      <div style={{ marginBottom: 36, textAlign: 'center' }}>
+        <div style={{ fontSize: 13, fontWeight: 700, color: T.brand.primary, letterSpacing: 1.5, marginBottom: 10 }}>
+          AI 물량 산출기
+        </div>
+        <div style={{ fontSize: 30, fontWeight: 800, letterSpacing: -0.8 }}>어떻게 계산할까요?</div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 20, width: '100%', maxWidth: 820 }}>
+        {cards.map(c => (
+          <button key={c.key} onClick={() => onSelect(c.key)} style={{
+            flex: 1, padding: 0, borderRadius: 18, overflow: 'hidden',
+            background: '#fff', border: `1.5px solid ${c.accent}55`,
+            cursor: 'pointer', fontFamily: 'inherit', textAlign: 'left',
+            boxShadow: `0 4px 14px ${c.accent}1a`,
+            transition: 'all .15s', position: 'relative',
+            display: 'flex', flexDirection: 'column',
+          }}
+          onMouseEnter={e => { e.currentTarget.style.transform = 'translateY(-3px)'; e.currentTarget.style.boxShadow = `0 10px 26px ${c.accent}2e`; }}
+          onMouseLeave={e => { e.currentTarget.style.transform = 'translateY(0)'; e.currentTarget.style.boxShadow = `0 4px 14px ${c.accent}1a`; }}>
+            {c.recommended && (
+              <span style={{
+                position: 'absolute', top: 14, right: 14, zIndex: 5,
+                fontSize: 11, fontWeight: 700, letterSpacing: 0.3,
+                color: '#fff', background: c.accent,
+                padding: '3px 11px', borderRadius: 999,
+              }}>추천</span>
+            )}
+            <div style={{
+              height: 180, background: c.accentSoft,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              overflow: 'hidden',
+            }}>
+              {c.preview}
+            </div>
+            <div style={{ padding: '18px 20px 22px' }}>
+              <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: -0.3, marginBottom: 5 }}>{c.title}</div>
+              <div style={{ fontSize: 13.5, color: T.ink3, lineHeight: 1.5 }}>{c.desc}</div>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── localStorage 로스율 초기화 ────────────────────────────
+function initLossRates() {
+  const defaults = Object.fromEntries(
+    Object.entries(QC_MATERIAL_SPECS).map(([k, v]) => [k, Math.round(v.lossRate * 100)])
+  );
+  try {
+    const saved = localStorage.getItem('qc_loss_rates');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      Object.entries(parsed).forEach(([k, r]) => {
+        if (QC_MATERIAL_SPECS[k]) QC_MATERIAL_SPECS[k].lossRate = r / 100;
+      });
+      return { ...defaults, ...parsed };
+    }
+  } catch (e) {}
+  return defaults;
+}
+
+// ─── 태블릿 앱 ────────────────────────────────────────────
 function TabletApp() {
-  const [tab, setTab]     = React.useState('sites');
+  const T = window.TOKENS;
+  const [tab, setTab]     = React.useState('mode');
   const [step, setStep]   = React.useState(1);
   const [state, setState] = React.useState(qcCreateInitialState());
   const [activeSite, setActiveSite] = React.useState(null);
   const [selectedRoomId, setSelectedRoomId] = React.useState(null);
-  const [globalQuery, setGlobalQuery] = React.useState('');
   const [toast, setToast] = React.useState('');
+  const [settingsLossRates, setSettingsLossRates] = React.useState(initLossRates);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
+
+  const handleModeSelect = (mode) => {
+    if (mode === 'floorplan') setTab('sites');
+    else setTab('simple');
+  };
 
   const handleSiteSelect = (site) => {
     setActiveSite(site);
     if (site.hasQuantity)      { setStep(4); setTab('confirm'); }
     else if (site.hasDrawing)  { setStep(3); setTab('review'); }
-    else                       { setStep(1); setTab('upload'); }
+    else                       { setStep(3); setTab('review'); }  // 신규도 도면 확인으로
   };
   const handleUploaded   = () => { setStep(2); setTab('convert'); };
   const handleConverted  = () => { setStep(3); setTab('review'); };
@@ -73,18 +178,36 @@ function TabletApp() {
   const updateRoomMat = (roomId, matKey, qty) => updateState(s => ({
     roomMatOverrides: { ...s.roomMatOverrides, [roomId]: { ...(s.roomMatOverrides[roomId] || {}), [matKey]: qty } }
   }));
-  const updateMat = (matKey, qty) => updateState(s => ({ matOverrides: { ...s.matOverrides, [matKey]: qty } }));
-  const updateFinish = (k, v) => updateState(s => ({ finishOverrides: { ...s.finishOverrides, [k]: v } }));
+  const updateMat  = (matKey, qty) => updateState(s => ({ matOverrides: { ...s.matOverrides, [matKey]: qty } }));
+  const updateWall = (roomId, wallKey, data) => updateState(s => ({
+    wallOverrides: { ...s.wallOverrides, [roomId]: { ...(s.wallOverrides[roomId] || {}), [wallKey]: data } }
+  }));
+  const updateFloor = (roomId, floorKey) => updateState(s => ({
+    floorOverrides: { ...(s.floorOverrides || {}), [roomId]: floorKey }
+  }));
 
-  const handleSave = (site) => { showToast('물량이 현장에 저장되었습니다'); setTab('sites'); setStep(1); };
+  const handleSave = () => { showToast('물량이 현장에 저장되었습니다'); setTab('sites'); setStep(1); };
+  const handleSettingsSave = (rates) => setSettingsLossRates(rates);
 
   const handleTabChange = (newTab) => {
+    const isLocked = !activeSite && step <= 1;
+    if (isLocked && (newTab === 'review' || newTab === 'confirm')) {
+      showToast('현장을 선택하거나 도면을 먼저 업로드해주세요');
+      return;
+    }
+    // 현장·업로드 탭으로 이동 시 도면 확인·자재 확인 정보 초기화
+    if (newTab === 'sites' || newTab === 'upload') {
+      setState(qcCreateInitialState());
+      setActiveSite(null);
+      setSelectedRoomId(null);
+      setStep(1);
+    }
     setTab(newTab);
-    if (newTab === 'upload')  setStep(1);
-    if (newTab === 'convert') setStep(2);
     if (newTab === 'review')  setStep(3);
     if (newTab === 'confirm') setStep(4);
   };
+
+  const isFullScreen = tab === 'mode' || tab === 'simple';
 
   return (
     <div className="stage">
@@ -94,24 +217,36 @@ function TabletApp() {
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             <TabletTopBar
               activeSite={activeSite}
-              globalQuery={globalQuery} setGlobalQuery={v => { setGlobalQuery(v); if (v && tab !== 'search') setTab('search'); }}
               onConfirm={handleReviewDone}
               showConfirm={tab === 'review'}
             />
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              <TabletSideBar tab={tab} onChange={handleTabChange} step={step}/>
+              {!isFullScreen && <TabletSideBar tab={tab} onChange={handleTabChange} step={step} activeSite={activeSite}/>}
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                {tab === 'mode'    && <TabletModeSelect onSelect={handleModeSelect}/>}
+                {tab === 'simple'  && (
+                  <div style={{
+                    flex: 1, display: 'flex', justifyContent: 'center',
+                    overflow: 'auto', background: T.bg, padding: '0 20px',
+                  }}>
+                    <div style={{ width: '100%', maxWidth: 500, display: 'flex', flexDirection: 'column' }}>
+                      <SimpleScreen onBackToMode={() => setTab('mode')}/>
+                    </div>
+                  </div>
+                )}
                 {tab === 'sites'   && <TabSites sites={QC_SITES} onSelect={handleSiteSelect}/>}
                 {tab === 'upload'  && <TabUpload activeSite={activeSite} sites={QC_SITES} onUploaded={handleUploaded} onPickSite={handleSiteSelect}/>}
                 {tab === 'convert' && <TabConvert activeSite={activeSite} onDone={handleConverted}/>}
                 {tab === 'review'  && <TabReview state={state} activeSite={activeSite}
                   selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId}
                   onToggleExpansion={toggleExpansion} onUpdateDim={updateDim}
-                  onUpdateRoomMat={updateRoomMat} onConfirm={handleReviewDone}/>}
-                {tab === 'confirm' && <TabConfirm state={state} activeSite={activeSite} sites={QC_SITES}
-                  onUpdateMat={updateMat} onUpdateFinish={updateFinish} onSave={handleSave}/>}
-                {tab === 'search'  && <TabSearch query={globalQuery} setQuery={setGlobalQuery}
+                  onUpdateRoomMat={updateRoomMat} onUpdateWall={updateWall}
+                  onUpdateFloor={updateFloor} onConfirm={handleReviewDone}/>}
+                {tab === 'confirm'  && <TabConfirm state={state} activeSite={activeSite} sites={QC_SITES}
+                  onUpdateMat={updateMat} onSave={handleSave}/>}
+                {tab === 'search'   && <TabSearch query={globalQuery} setQuery={setGlobalQuery}
                   sites={QC_SITES} onSiteSelect={handleSiteSelect}/>}
+                {tab === 'settings' && <TabSettings lossRates={settingsLossRates} onSave={handleSettingsSave}/>}
               </div>
             </div>
           </div>
