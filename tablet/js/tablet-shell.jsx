@@ -1,6 +1,6 @@
 // 태블릿 쉘 — 상단바 + 좌측 사이드바(탭 5개)
 
-function TabletTopBar({ activeSite, globalQuery, setGlobalQuery, onConfirm, showConfirm }) {
+function TabletTopBar({ activeSite, onConfirm, showConfirm }) {
   const T = window.TOKENS;
   return (
     <div style={{
@@ -25,21 +25,7 @@ function TabletTopBar({ activeSite, globalQuery, setGlobalQuery, onConfirm, show
         </div>
       </div>
 
-      <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-        <div style={{
-          width: 360, height: 36, padding: '0 12px 0 36px',
-          borderRadius: 999, background: T.surfaceAlt,
-          border: `1px solid ${T.line}`, position: 'relative',
-          display: 'flex', alignItems: 'center',
-        }}>
-          <Icon name="search" size={14} color={T.ink4} style={{ position: 'absolute', left: 12 }}/>
-          <input type="text" value={globalQuery} onChange={e => setGlobalQuery(e.target.value)}
-            placeholder="현장명 · 자재명 검색" style={{
-            flex: 1, height: '100%', border: 'none', background: 'transparent',
-            fontSize: 12.5, outline: 'none', fontFamily: 'inherit', color: T.ink,
-          }}/>
-        </div>
-      </div>
+      <div style={{ flex: 1 }}/>
 
       {showConfirm && (
         <button onClick={onConfirm} style={{
@@ -56,15 +42,15 @@ function TabletTopBar({ activeSite, globalQuery, setGlobalQuery, onConfirm, show
   );
 }
 
-function TabletSideBar({ tab, onChange, step }) {
+function TabletSideBar({ tab, onChange, step, activeSite }) {
   const T = window.TOKENS;
+  const isLocked = !activeSite && step <= 1;
   const items = [
-    { key: 'sites',   label: '현장',     icon: 'building', step: null },
-    { key: 'upload',  label: '업로드',   icon: 'upload',   step: 1 },
-    { key: 'convert', label: '도면변환', icon: 'sparkles', step: 2 },
-    { key: 'review',  label: '도면확인', icon: 'image',    step: 3 },
-    { key: 'confirm', label: '물량확정', icon: 'box',      step: 4 },
-    { key: 'search',  label: '검색',     icon: 'search',   step: null },
+    { key: 'sites',    label: '현장',     icon: 'building', lockable: false },
+    { key: 'upload',   label: '업로드',   icon: 'upload',   lockable: false },
+    { key: 'review',   label: '도면 확인', icon: 'image',   lockable: true  },
+    { key: 'confirm',  label: '자재 확인', icon: 'box',     lockable: true  },
+    { key: 'settings', label: '설정',     icon: 'settings', lockable: false },
   ];
   return (
     <div style={{
@@ -76,24 +62,19 @@ function TabletSideBar({ tab, onChange, step }) {
       </div>
       {items.map(it => {
         const active = tab === it.key;
+        const locked = isLocked && it.lockable;
         return (
           <button key={it.key} onClick={() => onChange(it.key)} style={{
             padding: '10px 12px', borderRadius: 9, border: 'none',
             background: active ? T.brand.primarySoft : 'transparent',
             color: active ? T.brand.primary : T.ink2,
             fontSize: 12, fontWeight: active ? 700 : 500, letterSpacing: -0.1,
-            cursor: 'pointer', fontFamily: 'inherit',
+            cursor: locked ? 'default' : 'pointer', fontFamily: 'inherit',
             display: 'flex', alignItems: 'center', gap: 9, textAlign: 'left',
+            opacity: locked ? 0.32 : 1,
           }}>
             <Icon name={it.icon} size={16} color={active ? T.brand.primary : T.ink3} strokeWidth={active ? 2.2 : 1.8}/>
             <span style={{ flex: 1 }}>{it.label}</span>
-            {it.step && (
-              <span style={{
-                fontSize: 9, fontWeight: 700, color: active ? '#fff' : T.ink4,
-                background: active ? T.brand.primary : T.line,
-                padding: '1.5px 5px', borderRadius: 4,
-              }}>{it.step}</span>
-            )}
           </button>
         );
       })}

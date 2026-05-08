@@ -1,13 +1,13 @@
 // Confirm Screen — Step 4: 물량확정
 // 공간별 면적표 + 자재별 소요량 + 마감재 변경 + 저장
 
-function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onUpdateFinish, onSave }) {
+function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
   const T = window.TOKENS;
   const rooms = qcGetCurrentRooms(state);
   const mats = qcCalcMaterials(state);
   const matEntries = qcSortMaterialEntries(mats);
   const [showSiteAssign, setShowSiteAssign] = React.useState(false);
-  const [tab, setTab] = React.useState('mat'); // mat|area|finish
+  const [tab, setTab] = React.useState('mat'); // mat|area
 
   const totalFloor = rooms.reduce((s, r) => s + r.floor, 0);
   const totalWall  = rooms.reduce((s, r) => s + r.wall, 0);
@@ -43,9 +43,8 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onUpdateFinish, 
         borderBottom: `1px solid ${T.lineSoft}`, padding: '0 12px',
       }}>
         {[
-          { k: 'mat',    label: '자재 소요량' },
-          { k: 'area',   label: '공간 면적표' },
-          { k: 'finish', label: '마감재 변경' },
+          { k: 'mat',  label: '자재 소요량' },
+          { k: 'area', label: '공간 면적표' },
         ].map(t => {
           const active = tab === t.k;
           return (
@@ -61,9 +60,8 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onUpdateFinish, 
       </div>
 
       <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 14, paddingBottom: 80 }}>
-        {tab === 'mat'    && <MatTab entries={matEntries} onUpdate={onUpdateMat}/>}
-        {tab === 'area'   && <AreaTab rooms={rooms} totalFloor={totalFloor} totalWall={totalWall}/>}
-        {tab === 'finish' && <FinishTab state={state} onUpdate={onUpdateFinish}/>}
+        {tab === 'mat'  && <MatTab entries={matEntries} onUpdate={onUpdateMat}/>}
+        {tab === 'area' && <AreaTab rooms={rooms} totalFloor={totalFloor} totalWall={totalWall}/>}
       </div>
 
       {/* 저장 버튼 */}
@@ -191,53 +189,6 @@ function AreaTab({ rooms, totalFloor, totalWall }) {
         <span style={{ textAlign: 'right' }}>{totalFloor.toFixed(1)}</span>
         <span style={{ textAlign: 'right' }}>{totalWall.toFixed(1)}</span>
         <span style={{ textAlign: 'right' }}>{totalFloor.toFixed(1)}</span>
-      </div>
-    </div>
-  );
-}
-
-// ─── 마감재 변경 탭 ────────────────────────────────────────
-function FinishTab({ state, onUpdate }) {
-  const T = window.TOKENS;
-  const items = [
-    { key: 'living_tv_wall', label: '거실 TV벽', options: [
-      { v: 'wallpaper', n: '실크벽지' }, { v: 'marble', n: '대리석' }, { v: 'paint', n: '페인트' },
-    ]},
-    { key: 'entrance_floor', label: '현관 바닥', options: [
-      { v: 'floor_tile', n: '타일' }, { v: 'marble', n: '대리석' },
-    ]},
-  ];
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-      {items.map(it => (
-        <div key={it.key} style={{
-          background: '#fff', borderRadius: 12, padding: 12,
-          border: `1px solid ${T.lineSoft}`,
-        }}>
-          <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 8 }}>{it.label}</div>
-          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-            {it.options.map(op => {
-              const active = state.finishOverrides[it.key] === op.v;
-              return (
-                <button key={op.v} onClick={() => onUpdate(it.key, op.v)} style={{
-                  padding: '7px 14px', borderRadius: 999,
-                  background: active ? T.brand.primary : '#fff',
-                  color: active ? '#fff' : T.ink2,
-                  border: `1px solid ${active ? T.brand.primary : T.line}`,
-                  fontSize: 12, fontWeight: active ? 700 : 500,
-                  cursor: 'pointer', fontFamily: 'inherit',
-                }}>{op.n}</button>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-      <div style={{
-        padding: 10, borderRadius: 10, background: T.warnSoft,
-        border: `1px dashed ${T.warn}55`,
-        fontSize: 11.5, color: T.ink2, lineHeight: 1.5,
-      }}>
-        ⚠️ 마감재 변경 시 자재 소요량이 자동으로 재계산됩니다
       </div>
     </div>
   );

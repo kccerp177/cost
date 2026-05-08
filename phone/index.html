@@ -31,95 +31,103 @@
 </a>
 <div id="root"></div>
 
-<script type="text/babel" src="./js/design-tokens.jsx"></script>
-<script type="text/babel" src="./js/galaxy-frame.jsx"></script>
-<script type="text/babel" src="./js/icons.jsx"></script>
-<script type="text/babel" src="./js/qc-data.jsx"></script>
-<script type="text/babel" src="./js/qc-logic.jsx"></script>
-<script type="text/babel" src="./js/qc-floorplan.jsx"></script>
-<script type="text/babel" src="./js/screen-sites.jsx"></script>
-<script type="text/babel" src="./js/screen-upload.jsx"></script>
-<script type="text/babel" src="./js/screen-convert.jsx"></script>
-<script type="text/babel" src="./js/screen-review.jsx"></script>
-<script type="text/babel" src="./js/screen-confirm.jsx"></script>
-<script type="text/babel" src="./js/screen-search.jsx"></script>
-<script type="text/babel" src="./js/screen-mode.jsx"></script>
-<script type="text/babel" src="./js/qc-simple-data.jsx"></script>
-<script type="text/babel" src="./js/screen-simple.jsx"></script>
+<script type="text/babel" src="./js/design-tokens.jsx?v=3"></script>
+<script type="text/babel" src="./js/galaxy-frame.jsx?v=3"></script>
+<script type="text/babel" src="./js/icons.jsx?v=3"></script>
+<script type="text/babel" src="./js/qc-data.jsx?v=6"></script>
+<script type="text/babel" src="./js/qc-logic.jsx?v=5"></script>
+<script type="text/babel" src="./js/qc-floorplan.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-sites.jsx?v=6"></script>
+<script type="text/babel" src="./js/screen-upload.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-convert.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-review.jsx?v=6"></script>
+<script type="text/babel" src="./js/screen-confirm.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-search.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-mode.jsx?v=3"></script>
+<script type="text/babel" src="./js/qc-simple-data.jsx?v=3"></script>
+<script type="text/babel" src="./js/screen-simple.jsx?v=4"></script>
+<script type="text/babel" src="./js/screen-settings.jsx?v=3"></script>
 
 <script type="text/babel" data-presets="react">
+
+// ─── localStorage 로스율 초기화 ────────────────────────────
+function initLossRates() {
+  const defaults = Object.fromEntries(
+    Object.entries(QC_MATERIAL_SPECS).map(([k, v]) => [k, Math.round(v.lossRate * 100)])
+  );
+  try {
+    const saved = localStorage.getItem('qc_loss_rates');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      // 저장된 값을 QC_MATERIAL_SPECS에 즉시 반영
+      Object.entries(parsed).forEach(([k, r]) => {
+        if (QC_MATERIAL_SPECS[k]) QC_MATERIAL_SPECS[k].lossRate = r / 100;
+      });
+      return { ...defaults, ...parsed };
+    }
+  } catch (e) {}
+  return defaults;
+}
+
 function QcApp() {
-  const [tab, setTab]     = React.useState('mode');      // mode|sites|upload|convert|review|confirm|search
-  const [step, setStep]   = React.useState(1);           // 1:upload 2:convert 3:review 4:confirm
+  const [tab, setTab]     = React.useState('mode');
+  const [step, setStep]   = React.useState(1);
   const [state, setState] = React.useState(qcCreateInitialState());
-  const [activeSite, setActiveSite] = React.useState(null); // { id, name, ... } | null
+  const [activeSite, setActiveSite] = React.useState(null);
   const [selectedRoomId, setSelectedRoomId] = React.useState(null);
   const [globalQuery, setGlobalQuery] = React.useState('');
   const [toast, setToast] = React.useState('');
+  const [settingsLossRates, setSettingsLossRates] = React.useState(initLossRates);
 
-  const showToast = (msg) => {
-    setToast(msg);
-    setTimeout(() => setToast(''), 2200);
-  };
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
 
-  // 모드 선택
   const handleModeSelect = (mode) => {
-    if (mode === 'floorplan') {
-      setTab('sites');
-    } else if (mode === 'simple') {
-      setTab('simple');
-    }
+    if (mode === 'floorplan') setTab('sites');
+    else setTab('simple');
   };
 
-  // 현장 선택 시 라우팅
   const handleSiteSelect = (site) => {
     setActiveSite(site);
-    if (site.hasQuantity) {
-      setStep(4); setTab('confirm');
-    } else if (site.hasDrawing) {
-      setStep(3); setTab('review');
-    } else {
-      setStep(1); setTab('upload');
-    }
+    if (site.hasQuantity)      { setStep(4); setTab('confirm'); }
+    else if (site.hasDrawing)  { setStep(3); setTab('review'); }
+    else                       { setStep(3); setTab('review'); }  // 신규도 도면 확인으로
   };
 
-  // 업로드 시뮬레이션 → 변환 → 리뷰
-  const handleUploaded = () => {
-    setStep(2); setTab('convert');
-  };
-  const handleConverted = () => {
-    setStep(3); setTab('review');
-  };
-  const handleReviewConfirm = () => {
-    setStep(4); setTab('confirm');
-  };
+  const handleUploaded       = () => { setStep(2); setTab('convert'); };
+  const handleConverted      = () => { setStep(3); setTab('review'); };
+  const handleReviewConfirm  = () => { setStep(4); setTab('confirm'); };
 
-  // state mutator
-  const updateState = (fn) => setState(prev => {
-    const next = { ...prev, ...fn(prev) };
-    return next;
-  });
+  const updateState    = (fn) => setState(prev => ({ ...prev, ...fn(prev) }));
   const toggleExpansion = (key, val) => updateState(s => ({ expansionState: { ...s.expansionState, [key]: val } }));
-  const updateDim = (roomId, wMm, hMm) => updateState(s => ({ dimOverrides: { ...s.dimOverrides, [roomId]: { wMm, hMm } } }));
-  const updateRoomMat = (roomId, matKey, qty) => updateState(s => ({
+  const updateDim      = (roomId, wMm, hMm) => updateState(s => ({ dimOverrides: { ...s.dimOverrides, [roomId]: { wMm, hMm } } }));
+  const updateRoomMat  = (roomId, matKey, qty) => updateState(s => ({
     roomMatOverrides: { ...s.roomMatOverrides, [roomId]: { ...(s.roomMatOverrides[roomId] || {}), [matKey]: qty } }
   }));
-  const updateMat = (matKey, qty) => updateState(s => ({ matOverrides: { ...s.matOverrides, [matKey]: qty } }));
-  const updateFinish = (key, val) => updateState(s => ({ finishOverrides: { ...s.finishOverrides, [key]: val } }));
+  const updateMat      = (matKey, qty) => updateState(s => ({ matOverrides: { ...s.matOverrides, [matKey]: qty } }));
+  const updateWall     = (roomId, wallKey, data) => updateState(s => ({
+    wallOverrides: { ...s.wallOverrides, [roomId]: { ...(s.wallOverrides[roomId] || {}), [wallKey]: data } }
+  }));
+  const updateFloor    = (roomId, floorKey) => updateState(s => ({
+    floorOverrides: { ...(s.floorOverrides || {}), [roomId]: floorKey }
+  }));
 
-  // 현장 저장
-  const handleSave = (siteInfo) => {
-    // siteInfo가 null이면 현장선택/등록 모달에서 받아온 것
-    showToast('물량이 현장에 저장되었습니다');
-    setTab('sites');
-    setStep(1);
-  };
+  const handleSave = () => { showToast('물량이 현장에 저장되었습니다'); setTab('sites'); setStep(1); };
+  const handleSettingsSave = (rates) => setSettingsLossRates(rates);
 
-  // 탭 변경 (진행 중 상태 유지)
   const handleTabChange = (newTab) => {
+    const isLocked = !activeSite && step <= 1;
+    if (isLocked && (newTab === 'review' || newTab === 'confirm')) {
+      showToast('현장을 선택하거나 도면을 먼저 업로드해주세요');
+      return;
+    }
+    // 현장·업로드 탭으로 이동 시 도면 확인·자재 확인 정보 초기화
+    if (newTab === 'sites' || newTab === 'upload') {
+      setState(qcCreateInitialState());
+      setActiveSite(null);
+      setSelectedRoomId(null);
+      setStep(1);
+    }
     setTab(newTab);
-    if (newTab === 'upload')  setStep(1);
-    if (newTab === 'convert') setStep(2);
     if (newTab === 'review')  setStep(3);
     if (newTab === 'confirm') setStep(4);
   };
@@ -131,12 +139,8 @@ function QcApp() {
         <GalaxyDevice width={402} height={874}>
           <div style={{ height: '100%', display: 'flex', flexDirection: 'column', paddingTop: 44 }}>
             <div style={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-              {tab === 'mode' && (
-                <ModeSelectScreen onSelect={handleModeSelect}/>
-              )}
-              {tab === 'simple' && (
-                <SimpleScreen onBackToMode={() => setTab('mode')}/>
-              )}
+              {tab === 'mode' && <ModeSelectScreen onSelect={handleModeSelect}/>}
+              {tab === 'simple' && <SimpleScreen onBackToMode={() => setTab('mode')}/>}
               {tab === 'sites' && (
                 <SitesScreen
                   sites={QC_SITES}
@@ -146,51 +150,35 @@ function QcApp() {
                 />
               )}
               {tab === 'upload' && (
-                <UploadScreen
-                  activeSite={activeSite}
-                  sites={QC_SITES}
-                  onUploaded={handleUploaded}
-                  onPickSite={handleSiteSelect}
-                />
+                <UploadScreen activeSite={activeSite} sites={QC_SITES} onUploaded={handleUploaded} onPickSite={handleSiteSelect}/>
               )}
-              {tab === 'convert' && (
-                <ConvertScreen
-                  activeSite={activeSite}
-                  onDone={handleConverted}
-                />
-              )}
+              {tab === 'convert' && <ConvertScreen activeSite={activeSite} onDone={handleConverted}/>}
               {tab === 'review' && (
                 <ReviewScreen
-                  state={state}
-                  activeSite={activeSite}
-                  selectedRoomId={selectedRoomId}
-                  onSelectRoom={setSelectedRoomId}
-                  onToggleExpansion={toggleExpansion}
-                  onUpdateDim={updateDim}
-                  onUpdateRoomMat={updateRoomMat}
-                  onConfirm={handleReviewConfirm}
+                  state={state} activeSite={activeSite}
+                  selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId}
+                  onToggleExpansion={toggleExpansion} onUpdateDim={updateDim}
+                  onUpdateRoomMat={updateRoomMat} onUpdateWall={updateWall}
+                  onUpdateFloor={updateFloor} onConfirm={handleReviewConfirm}
                 />
               )}
               {tab === 'confirm' && (
                 <ConfirmScreen
-                  state={state}
-                  activeSite={activeSite}
-                  sites={QC_SITES}
-                  onUpdateMat={updateMat}
-                  onUpdateFinish={updateFinish}
-                  onSave={handleSave}
+                  state={state} activeSite={activeSite} sites={QC_SITES}
+                  onUpdateMat={updateMat} onSave={handleSave}
                 />
               )}
               {tab === 'search' && (
-                <SearchScreen
-                  query={globalQuery}
-                  setQuery={setGlobalQuery}
-                  sites={QC_SITES}
-                  onSiteSelect={handleSiteSelect}
-                />
+                <SearchScreen query={globalQuery} setQuery={setGlobalQuery}
+                  sites={QC_SITES} onSiteSelect={handleSiteSelect}/>
+              )}
+              {tab === 'settings' && (
+                <SettingsScreen lossRates={settingsLossRates} onSave={handleSettingsSave}/>
               )}
             </div>
-            {tab !== 'mode' && tab !== 'simple' && <PhoneTabBar tab={tab} onChange={handleTabChange}/>}
+            {tab !== 'mode' && tab !== 'simple' && (
+              <PhoneTabBar tab={tab} onChange={handleTabChange} activeSite={activeSite} step={step}/>
+            )}
           </div>
 
           {toast && (
@@ -209,14 +197,15 @@ function QcApp() {
 }
 
 // ─── 하단 탭바 (5개) ─────────────────────────────────────
-function PhoneTabBar({ tab, onChange }) {
+function PhoneTabBar({ tab, onChange, activeSite, step }) {
   const T = window.TOKENS;
+  const isLocked = !activeSite && step <= 1;
   const items = [
-    { key: 'sites',   label: '현장',     icon: 'building' },
-    { key: 'upload',  label: '업로드',   icon: 'upload' },
-    { key: 'convert', label: '도면변환', icon: 'sparkles' },
-    { key: 'confirm', label: '물량확정', icon: 'box' },
-    { key: 'search',  label: '검색',     icon: 'search' },
+    { key: 'sites',    label: '현장',     icon: 'building', lockable: false },
+    { key: 'upload',   label: '업로드',   icon: 'upload',   lockable: false },
+    { key: 'review',   label: '도면 확인', icon: 'image',   lockable: true  },
+    { key: 'confirm',  label: '자재 확인', icon: 'box',     lockable: true  },
+    { key: 'settings', label: '설정',     icon: 'settings', lockable: false },
   ];
   return (
     <div style={{
@@ -225,13 +214,15 @@ function PhoneTabBar({ tab, onChange }) {
       display: 'flex', alignItems: 'center', justifyContent: 'space-around',
     }}>
       {items.map(it => {
-        const active = tab === it.key || (it.key === 'confirm' && tab === 'review');
-        const color = active ? T.brand.primary : T.ink4;
+        const active = tab === it.key;
+        const locked = isLocked && it.lockable;
+        const color  = active ? T.brand.primary : T.ink4;
         return (
           <button key={it.key} onClick={() => onChange(it.key)} style={{
             flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
             background: 'transparent', border: 'none', padding: '4px 0',
-            fontFamily: 'inherit', cursor: 'pointer',
+            fontFamily: 'inherit', cursor: locked ? 'default' : 'pointer',
+            opacity: locked ? 0.32 : 1,
           }}>
             <Icon name={it.icon} size={20} color={color} strokeWidth={active ? 2.2 : 1.8}/>
             <span style={{ fontSize: 10.5, fontWeight: active ? 700 : 500, color, letterSpacing: -0.2 }}>{it.label}</span>

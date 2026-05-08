@@ -2,48 +2,98 @@
 
 function SimpleScreen({ onBackToMode }) {
   const T = window.TOKENS;
-  const [phase, setPhase]       = React.useState('input'); // input | result
-  const [roomId, setRoomId]     = React.useState('living');
-  const [dimMode, setDimMode]   = React.useState('area');  // 'dim' (가로×세로) | 'area' (면적만)
-  const [wMm, setW]             = React.useState('');
-  const [hMm, setH]             = React.useState('');
-  const [areaInput, setArea]    = React.useState('');
-  const [lossRates, setLossRates] = React.useState({});    // { matKey: rate% }
+  const [phase, setPhase]     = React.useState('input'); // input | result
+  const [dimMode, setDimMode] = React.useState('area');  // 'dim' | 'area'
+  const [wMm, setW]           = React.useState('');
+  const [hMm, setH]           = React.useState('');
+  const [areaInput, setArea]  = React.useState('');
+  const [lossRates, setLossRates] = React.useState({});
 
-  const roomDef = SIMPLE_ROOMS.find(r => r.id === roomId);
+  // ─── 공간 인스턴스 목록 ────────────────────────────────
+  const [roomInstances, setRoomInstances] = React.useState(() => [
+    { id: 'i_living',   baseId: 'living',   name: '거실' },
+    { id: 'i_bedroom1', baseId: 'bedroom',  name: '침실 1' },
+    { id: 'i_kitchen',  baseId: 'kitchen',  name: '주방' },
+    { id: 'i_bath1',    baseId: 'bath',     name: '욕실 1' },
+    { id: 'i_entrance', baseId: 'entrance', name: '현관' },
+  ]);
+  const [activeId, setActiveId] = React.useState('i_living');
 
-  // 거실은 dimMode 자동 area 고정
+  const activeInstance = roomInstances.find(r => r.id === activeId) || roomInstances[0];
+  const roomDef = SIMPLE_ROOMS.find(r => r.id === activeInstance.baseId);
+
+  // ─── 공간 전환 ─────────────────────────────────────────
+  const handleRoomSwitch = (id) => {
+    if (id === activeId) return;
+    setActiveId(id);
+    setW(''); setH(''); setArea('');
+    setPhase('input');
+  };
+
   React.useEffect(() => {
-    if (!roomDef.allowDimMode) setDimMode('area');
-  }, [roomId]);
+    if (roomDef && !roomDef.allowDimMode) setDimMode('area');
+  }, [activeId]);
 
-  // 면적 자동 계산 (dim 모드)
+  // ─── 침실/욕실 추가 ────────────────────────────────────
+  const addRoom = (baseId) => {
+    const count = roomInstances.filter(r => r.baseId === baseId).length + 1;
+    const baseRoom = SIMPLE_ROOMS.find(r => r.id === baseId);
+    const newId = `i_${baseId}_${Date.now()}`;
+    const newInst = { id: newId, baseId, name: `${baseRoom.name} ${count}` };
+    // 같은 baseId의 마지막 위치 뒤에 삽입
+    const lastIdx = roomInstances.reduce((acc, r, i) => r.baseId === baseId ? i : acc, -1);
+    const updated = [...roomInstances];
+    updated.splice(lastIdx + 1, 0, newInst);
+    setRoomInstances(updated);
+    setActiveId(newId);
+    setW(''); setH(''); setArea('');
+    setPhase('input');
+  };
+
+  // ─── 침실/욕실 제거 ────────────────────────────────────
+  const removeRoom = (id) => {
+    const inst = roomInstances.find(r => r.id === id);
+    if (!inst) return;
+    const sameType = roomInstances.filter(r => r.baseId === inst.baseId);
+    if (sameType.length <= 1) return; // 마지막 1개는 제거 불가
+    const baseRoom = SIMPLE_ROOMS.find(r => r.id === inst.baseId);
+    const filtered = roomInstances.filter(r => r.id !== id);
+    // 남은 같은 타입 재번호
+    let n = 1;
+    filtered.forEach(r => {
+      if (r.baseId === inst.baseId) r.name = `${baseRoom.name} ${n++}`;
+    });
+    setRoomInstances(filtered);
+    if (activeId === id) {
+      const next = filtered.find(r => r.baseId === inst.baseId) || filtered[0];
+      setActiveId(next.id);
+      setW(''); setH(''); setArea('');
+      setPhase('input');
+    }
+  };
+
+  // ─── 계산 ──────────────────────────────────────────────
   const wNum = parseFloat(wMm) || 0;
   const hNum = parseFloat(hMm) || 0;
   const aNum = parseFloat(areaInput) || 0;
-  const calcArea = dimMode === 'dim'
-    ? (wNum * hNum) / 1_000_000   // mm² → m²
-    : aNum;
-  const canCalc = dimMode === 'dim' ? (wNum > 0 && hNum > 0) : aNum > 0;
+  const calcArea = dimMode === 'dim' ? (wNum * hNum) / 1_000_000 : aNum;
+  const canCalc  = dimMode === 'dim' ? (wNum > 0 && hNum > 0) : aNum > 0;
 
   const goCalc = () => {
     if (!canCalc) return;
     const init = {};
-    SIMPLE_ROOM_FINISH[roomId].forEach(k => {
+    SIMPLE_ROOM_FINISH[activeInstance.baseId].forEach(k => {
       init[k] = Math.round((QC_MATERIAL_SPECS[k].lossRate || 0) * 100);
     });
     setLossRates(init);
     setPhase('result');
   };
 
-  const reset = () => {
-    setPhase('input');
-    setW(''); setH(''); setArea('');
-  };
+  const reset = () => { setPhase('input'); setW(''); setH(''); setArea(''); };
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: T.bg }}>
-      {/* 상단 바 — 모드 표시 + 모드 변경 */}
+      {/* 상단 바 */}
       <div style={{
         padding: '8px 14px', background: T.brand.accentSoft,
         borderBottom: `1px solid ${T.brand.accent}33`,
@@ -65,7 +115,11 @@ function SimpleScreen({ onBackToMode }) {
 
       {phase === 'input' ? (
         <SimpleInput
-          roomId={roomId} setRoomId={setRoomId}
+          roomInstances={roomInstances}
+          activeId={activeId}
+          onRoomSwitch={handleRoomSwitch}
+          onAddRoom={addRoom}
+          onRemoveRoom={removeRoom}
           roomDef={roomDef}
           dimMode={dimMode} setDimMode={setDimMode}
           wMm={wMm} setW={setW} hMm={hMm} setH={setH}
@@ -75,7 +129,9 @@ function SimpleScreen({ onBackToMode }) {
         />
       ) : (
         <SimpleResult
-          roomId={roomId} roomDef={roomDef}
+          roomId={activeInstance.baseId}
+          roomDef={roomDef}
+          roomName={activeInstance.name}
           dimMode={dimMode} wNum={wNum} hNum={hNum} calcArea={calcArea}
           lossRates={lossRates} setLossRates={setLossRates}
           onReset={reset}
@@ -86,29 +142,83 @@ function SimpleScreen({ onBackToMode }) {
 }
 
 // ─── 입력 ────────────────────────────────────────────────
-function SimpleInput({ roomId, setRoomId, roomDef, dimMode, setDimMode, wMm, setW, hMm, setH, areaInput, setArea, calcArea, canCalc, onCalc }) {
+function SimpleInput({
+  roomInstances, activeId, onRoomSwitch, onAddRoom, onRemoveRoom,
+  roomDef, dimMode, setDimMode, wMm, setW, hMm, setH,
+  areaInput, setArea, calcArea, canCalc, onCalc,
+}) {
   const T = window.TOKENS;
   const [focusW, setFocusW] = React.useState(true);
 
   return (
     <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 16, display: 'flex', flexDirection: 'column', gap: 14 }}>
+
       {/* 공간 구분 */}
       <div>
-        <div style={{ fontSize: 10.5, fontWeight: 700, color: T.ink3, letterSpacing: 0.4, marginBottom: 6 }}>공간 구분</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 5 }}>
-          {SIMPLE_ROOMS.map(r => {
-            const active = roomId === r.id;
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: T.ink3, letterSpacing: 0.4, marginBottom: 7 }}>공간 구분</div>
+
+        {/* 인스턴스 칩 목록 */}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 7 }}>
+          {roomInstances.map(inst => {
+            const active = activeId === inst.id;
+            const canRemove = roomInstances.filter(r => r.baseId === inst.baseId).length > 1;
             return (
-              <button key={r.id} onClick={() => setRoomId(r.id)} style={{
-                padding: '9px 4px', borderRadius: 9, border: 'none',
-                background: active ? T.brand.accent : '#fff',
-                color: active ? '#fff' : T.ink2,
-                fontSize: 12, fontWeight: active ? 700 : 500,
-                cursor: 'pointer', fontFamily: 'inherit',
-                boxShadow: active ? 'none' : `inset 0 0 0 0.5px ${T.line}`,
-              }}>{r.name}</button>
+              <div key={inst.id} style={{ position: 'relative', display: 'inline-flex' }}>
+                <button
+                  onClick={() => onRoomSwitch(inst.id)}
+                  style={{
+                    padding: '8px 12px',
+                    paddingRight: canRemove ? 24 : 12,
+                    borderRadius: 9, border: 'none',
+                    background: active ? T.brand.accent : '#fff',
+                    color: active ? '#fff' : T.ink2,
+                    fontSize: 12, fontWeight: active ? 700 : 500,
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    boxShadow: active ? 'none' : `inset 0 0 0 0.5px ${T.line}`,
+                    whiteSpace: 'nowrap',
+                  }}
+                >{inst.name}</button>
+                {canRemove && (
+                  <button
+                    onClick={e => { e.stopPropagation(); onRemoveRoom(inst.id); }}
+                    style={{
+                      position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)',
+                      width: 15, height: 15, borderRadius: 999,
+                      background: active ? 'rgba(255,255,255,0.32)' : T.line,
+                      border: 'none', cursor: 'pointer', fontFamily: 'inherit',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 8, color: active ? '#fff' : T.ink3,
+                      lineHeight: 1, padding: 0,
+                    }}
+                  >✕</button>
+                )}
+              </div>
             );
           })}
+        </div>
+
+        {/* 침실/욕실 추가 버튼 */}
+        <div style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => onAddRoom('bedroom')} style={{
+            padding: '5px 10px', borderRadius: 8,
+            border: `1px dashed ${T.brand.accent}77`,
+            background: T.brand.accentSoft, color: T.brand.accent,
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}>
+            <Icon name="plus" size={10} color={T.brand.accent} strokeWidth={2.5}/>
+            침실 추가
+          </button>
+          <button onClick={() => onAddRoom('bath')} style={{
+            padding: '5px 10px', borderRadius: 8,
+            border: `1px dashed ${T.brand.accent}77`,
+            background: T.brand.accentSoft, color: T.brand.accent,
+            fontSize: 11, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 3,
+          }}>
+            <Icon name="plus" size={10} color={T.brand.accent} strokeWidth={2.5}/>
+            욕실 추가
+          </button>
         </div>
       </div>
 
@@ -125,8 +235,7 @@ function SimpleInput({ roomId, setRoomId, roomDef, dimMode, setDimMode, wMm, set
             color: dimMode === 'dim' ? T.ink : T.ink3,
             fontSize: 11.5, fontWeight: dimMode === 'dim' ? 700 : 500,
             cursor: roomDef.allowDimMode ? 'pointer' : 'not-allowed',
-            fontFamily: 'inherit',
-            opacity: roomDef.allowDimMode ? 1 : 0.45,
+            fontFamily: 'inherit', opacity: roomDef.allowDimMode ? 1 : 0.45,
           }}>가로 × 세로</button>
         <button onClick={() => setDimMode('area')} style={{
           padding: '7px', borderRadius: 7, border: 'none',
@@ -157,12 +266,11 @@ function SimpleInput({ roomId, setRoomId, roomDef, dimMode, setDimMode, wMm, set
           focused={true} onFocus={() => {}} step="0.01"/>
       )}
 
-      {/* 계산 결과 미리보기 */}
+      {/* 면적 미리보기 */}
       {dimMode === 'dim' && (
         <div style={{
           padding: '11px 14px', borderRadius: 10,
-          background: T.brand.accentSoft,
-          border: `1px solid ${T.brand.accent}55`,
+          background: T.brand.accentSoft, border: `1px solid ${T.brand.accent}55`,
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         }}>
           <span style={{ fontSize: 11.5, color: T.brand.accent, fontWeight: 600 }}>면적 (자동)</span>
@@ -205,30 +313,28 @@ function SimpleInputField({ label, value, onChange, focused, onFocus, step }) {
 }
 
 // ─── 결과 ────────────────────────────────────────────────
-function SimpleResult({ roomId, roomDef, dimMode, wNum, hNum, calcArea, lossRates, setLossRates, onReset }) {
+function SimpleResult({ roomId, roomDef, roomName, dimMode, wNum, hNum, calcArea, lossRates, setLossRates, onReset }) {
   const T = window.TOKENS;
   const matKeys = SIMPLE_ROOM_FINISH[roomId];
 
-  // 둘레 / 벽면적 계산
-  // dim 모드: (w+h)*2 (m), area 모드: 정사각형 가정 √area * 4
   const perimM = dimMode === 'dim'
     ? (wNum + hNum) * 2 / 1000
     : Math.sqrt(calcArea) * 4;
-  const wallArea = perimM * SIMPLE_CEILING_H;
+  const wallArea  = perimM * SIMPLE_CEILING_H;
   const floorArea = calcArea;
-  const ceilArea = calcArea;
+  const ceilArea  = calcArea;
 
   const calcQty = (matKey) => {
     const spec = QC_MATERIAL_SPECS[matKey];
     const areaType = SIMPLE_MATERIAL_AREA_TYPE[matKey];
     const lossPct = lossRates[matKey] != null ? lossRates[matKey] : Math.round((spec.lossRate || 0) * 100);
     let baseAmt;
-    if (areaType === 'floor')          baseAmt = floorArea / spec.coverage;
-    else if (areaType === 'wall')      baseAmt = wallArea / spec.coverage;
-    else if (areaType === 'ceiling')   baseAmt = ceilArea / spec.coverage;
-    else if (areaType === 'perimeter') baseAmt = perimM;
+    if (areaType === 'floor')             baseAmt = floorArea / spec.coverage;
+    else if (areaType === 'wall')         baseAmt = wallArea / spec.coverage;
+    else if (areaType === 'ceiling')      baseAmt = ceilArea / spec.coverage;
+    else if (areaType === 'perimeter')    baseAmt = perimM;
     else if (areaType === 'perimeter_door') baseAmt = Math.max(0, perimM - 0.9);
-    else if (areaType === 'fixture')   baseAmt = 1;
+    else if (areaType === 'fixture')      baseAmt = 1;
     else baseAmt = 0;
     const finalQty = Math.ceil(baseAmt * (1 + lossPct / 100));
     return { baseAmt, finalQty, lossPct };
@@ -246,7 +352,6 @@ function SimpleResult({ roomId, roomDef, dimMode, wNum, hNum, calcArea, lossRate
 
   return (
     <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-      {/* 헤더 */}
       <div style={{
         padding: '12px 16px', background: '#fff',
         borderBottom: `1px solid ${T.lineSoft}`,
@@ -262,12 +367,11 @@ function SimpleResult({ roomId, roomDef, dimMode, wNum, hNum, calcArea, lossRate
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ fontSize: 14, fontWeight: 700, letterSpacing: -0.2 }}>계산 결과</div>
           <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>
-            {roomDef.name} · {floorArea.toFixed(2)} ㎡ · {dimText}
+            {roomName} · {floorArea.toFixed(2)} ㎡ · {dimText}
           </div>
         </div>
       </div>
 
-      {/* 자재 카드 */}
       <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
         {matKeys.map(k => {
           const spec = QC_MATERIAL_SPECS[k];
@@ -279,7 +383,6 @@ function SimpleResult({ roomId, roomDef, dimMode, wNum, hNum, calcArea, lossRate
           );
         })}
 
-        {/* 가정 안내 */}
         <div style={{
           marginTop: 6, padding: '8px 12px', borderRadius: 9,
           background: T.surfaceAlt, fontSize: 10.5, color: T.ink3, lineHeight: 1.5,
@@ -334,13 +437,11 @@ function SimpleMatCard({ matKey, spec, baseAmt, finalQty, lossPct, onLossChange 
         <span style={{ fontSize: 11, color: T.ink3, fontWeight: 600 }}>{spec.unit}</span>
       </div>
 
-      {/* 산정근거 */}
       <div style={{
         fontSize: 10.5, color: T.ink3, lineHeight: 1.45,
         padding: '6px 8px', background: T.surfaceAlt, borderRadius: 6, marginBottom: 7,
       }}>📐 {basis}</div>
 
-      {/* 산출량 + 로스율 */}
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         paddingTop: 6, borderTop: `0.5px dashed ${T.lineSoft}`,

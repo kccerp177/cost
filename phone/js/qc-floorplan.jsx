@@ -11,7 +11,30 @@ function qcBuildFloorplanSvg(state, selectedRoomId, opts) {
   const lvW = lE ? 310 : 270;
   const b3Bot = b3E ? 400 : 360;
 
-  let s = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">`;
+  // bbMap을 먼저 계산 (viewBox zoom + 벽 하이라이트 공용)
+  const bbMap = {
+    living:   { x1: ox, y1: oy, x2: ox + lvW, y2: oy + 220 },
+    kitchen:  { x1: ox, y1: oy + 220, x2: ox + 200, y2: oy + 400 },
+    entrance: { x1: ox + 200, y1: oy + 320, x2: ox + 310, y2: oy + 400 },
+    bed1:     { x1: ox + 310, y1: oy, x2: ox + 540, y2: oy + 180 },
+    bath1:    { x1: ox + 440, y1: oy + 180, x2: ox + 540, y2: oy + 260 },
+    bed2:     { x1: ox + 310, y1: oy + 180, x2: ox + 440, y2: oy + 300 },
+    bed3:     { x1: ox + 310, y1: oy + 300, x2: ox + 440, y2: b3Bot },
+    bath2:    { x1: ox + 440, y1: oy + 260, x2: ox + 540, y2: oy + 400 },
+  };
+
+  // zoomRoomId가 있으면 해당 공간으로 viewBox 확대
+  let vx = 0, vy = 0, vw = W, vh = H;
+  if (o.zoomRoomId && bbMap[o.zoomRoomId]) {
+    const bb = bbMap[o.zoomRoomId];
+    const pad = 48;
+    vx = bb.x1 - pad;
+    vy = bb.y1 - pad;
+    vw = (bb.x2 - bb.x1) + 2 * pad;
+    vh = (bb.y2 - bb.y1) + 2 * pad;
+  }
+
+  let s = `<svg viewBox="${vx} ${vy} ${vw} ${vh}" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:100%;display:block">`;
   s += `<defs><pattern id="qc-gb" width="16" height="16" patternUnits="userSpaceOnUse"><path d="M 16 0 L 0 0 0 16" fill="none" stroke="#E5E7EB" stroke-width="0.5"/></pattern>`;
   s += `<style>.qc-wl{fill:none;stroke:#0F172A;stroke-width:6;stroke-linejoin:miter}.qc-wli{fill:none;stroke:#FAF3E0;stroke-width:2.5}.qc-wt{fill:none;stroke:#1E293B;stroke-width:3.5;stroke-linejoin:miter}.qc-wti{fill:none;stroke:#FAF3E0;stroke-width:1.5}.qc-rl{font-family:Pretendard,sans-serif;font-size:12px;font-weight:700;fill:#0F172A;text-anchor:middle}.qc-ra{font-family:Pretendard,sans-serif;font-size:10px;fill:#64748B;text-anchor:middle}.qc-win{stroke:#1D4ED8;stroke-width:2.5;stroke-linecap:butt}.qc-da{fill:none;stroke:#64748B;stroke-width:1.2;stroke-dasharray:3 2}.qc-ez{stroke:#94A3B8;stroke-width:1;stroke-dasharray:4 3;fill:none}.qc-rbg{fill:#FAF3E0}.qc-bbg{fill:#E0E9F2}.qc-space{fill:transparent;cursor:pointer;transition:fill .15s}.qc-space:hover{fill:rgba(37,99,235,0.12)}.qc-space.qc-selected{fill:rgba(37,99,235,0.25);stroke:#1D4ED8;stroke-width:2}.qc-dim-line{stroke:#1D4ED8;stroke-width:1.2;fill:none}.qc-dim-text{font-family:Pretendard,sans-serif;font-size:10px;font-weight:700;fill:#1D4ED8}.qc-dim-info{font-family:Pretendard,sans-serif;font-size:9.5px;fill:#64748B;text-anchor:middle}</style></defs>`;
 
@@ -100,18 +123,8 @@ function qcBuildFloorplanSvg(state, selectedRoomId, opts) {
     s += `<polygon points="${p.pts}" class="qc-space${selectedRoomId === p.id ? ' qc-selected' : ''}" data-room="${p.id}"/>`;
   });
 
-  // 선택된 공간 치수 표시
+  // 선택된 공간 치수 + 벽 하이라이트
   if (selectedRoomId) {
-    const bbMap = {
-      living:   { x1: ox, y1: oy, x2: ox + lvW, y2: oy + 220 },
-      kitchen:  { x1: ox, y1: oy + 220, x2: ox + 200, y2: oy + 400 },
-      entrance: { x1: ox + 200, y1: oy + 320, x2: ox + 310, y2: oy + 400 },
-      bed1:     { x1: ox + 310, y1: oy, x2: ox + 540, y2: oy + 180 },
-      bath1:    { x1: ox + 440, y1: oy + 180, x2: ox + 540, y2: oy + 260 },
-      bed2:     { x1: ox + 310, y1: oy + 180, x2: ox + 440, y2: oy + 300 },
-      bed3:     { x1: ox + 310, y1: oy + 300, x2: ox + 440, y2: b3Bot },
-      bath2:    { x1: ox + 440, y1: oy + 260, x2: ox + 540, y2: oy + 400 },
-    };
     const bb = bbMap[selectedRoomId];
     const selRoom = rooms.find(r => r.id === selectedRoomId);
     if (bb && selRoom) {
@@ -141,6 +154,22 @@ function qcBuildFloorplanSvg(state, selectedRoomId, opts) {
       g += `</g>`;
       s += g;
     }
+
+    // 선택된 벽 빨간색 하이라이트
+    if (o.selectedWall) {
+      const bb2 = bbMap[selectedRoomId];
+      if (bb2) {
+        let wx1, wy1, wx2, wy2;
+        const sw = o.selectedWall;
+        if (sw === 'top')    { wx1 = bb2.x1; wy1 = bb2.y1; wx2 = bb2.x2; wy2 = bb2.y1; }
+        if (sw === 'right')  { wx1 = bb2.x2; wy1 = bb2.y1; wx2 = bb2.x2; wy2 = bb2.y2; }
+        if (sw === 'bottom') { wx1 = bb2.x1; wy1 = bb2.y2; wx2 = bb2.x2; wy2 = bb2.y2; }
+        if (sw === 'left')   { wx1 = bb2.x1; wy1 = bb2.y1; wx2 = bb2.x1; wy2 = bb2.y2; }
+        if (wx1 !== undefined) {
+          s += `<line x1="${wx1}" y1="${wy1}" x2="${wx2}" y2="${wy2}" stroke="#EF4444" stroke-width="5" stroke-linecap="round" pointer-events="none"/>`;
+        }
+      }
+    }
   }
 
   s += '</svg>';
@@ -148,11 +177,11 @@ function qcBuildFloorplanSvg(state, selectedRoomId, opts) {
 }
 
 // React 컴포넌트 래퍼 (클릭 이벤트 wiring)
-function QcFloorplan({ state, selectedRoomId, onSelectRoom, highlightExpansion, style }) {
+function QcFloorplan({ state, selectedRoomId, selectedWall, zoomRoomId, onSelectRoom, highlightExpansion, style }) {
   const ref = React.useRef(null);
   const svgHtml = React.useMemo(
-    () => qcBuildFloorplanSvg(state, selectedRoomId, { highlightExpansion }),
-    [state, selectedRoomId, highlightExpansion]
+    () => qcBuildFloorplanSvg(state, selectedRoomId, { highlightExpansion, selectedWall, zoomRoomId }),
+    [state, selectedRoomId, selectedWall, zoomRoomId, highlightExpansion]
   );
 
   React.useEffect(() => {
