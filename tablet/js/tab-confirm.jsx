@@ -2,7 +2,9 @@
 
 function TabConfirm({ state, activeSite, sites, onUpdateMat, onSave }) {
   const T = window.TOKENS;
-  const rooms = qcGetCurrentRooms(state);
+  // roomEnabled로 비활성 공간 제외 (qcCalcMaterials와 동일 기준)
+  const roomEnabled = state.roomEnabled || {};
+  const rooms = qcGetCurrentRooms(state).filter(r => roomEnabled[r.id] !== false);
   const mats = qcCalcMaterials(state);
   const matEntries = qcSortMaterialEntries(mats);
   const [showSiteAssign, setShowSiteAssign] = React.useState(false);
