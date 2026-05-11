@@ -10,6 +10,7 @@ function qcCreateInitialState() {
     roomMatOverrides: {}, // Step 3 공간별 수량 오버라이드 { roomId: { matKey: qty } }
     wallOverrides:   {}, // 공간별 벽 오버라이드 { roomId: { top/right/bottom/left: { lengthMm, wallpaper } } }
     floorOverrides:  {}, // 공간별 바닥 자재 오버라이드 { roomId: 'floor_wood'|'floor_tile'|'floor_marble' }
+    roomEnabled:     {}, // 공간 포함 여부 { roomId: false } — 없거나 true면 포함
   };
 }
 
@@ -139,9 +140,10 @@ function qcCalcMaterialsForRoom(room, state) {
   return mats;
 }
 
-// 전체 자재 계산
+// 전체 자재 계산 (roomEnabled로 비활성 공간 제외)
 function qcCalcMaterials(state) {
-  const rooms = qcGetCurrentRooms(state);
+  const roomEnabled = state.roomEnabled || {};
+  const rooms = qcGetCurrentRooms(state).filter(r => roomEnabled[r.id] !== false);
   const finishOv = state.finishOverrides || {};
   const matOv = state.matOverrides || {};
   const mats = {};

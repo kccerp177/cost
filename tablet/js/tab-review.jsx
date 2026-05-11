@@ -20,11 +20,20 @@ const TAB_FLOOR_OPTS = [
   { v: 'floor_marble', label: '대리석' },
 ];
 
-function TabReview({ state, activeSite, selectedRoomId, onSelectRoom, onToggleExpansion, onUpdateDim, onUpdateRoomMat, onUpdateWall, onUpdateFloor, onConfirm }) {
+function TabReview({ state, activeSite, selectedRoomId, onSelectRoom, onToggleExpansion, onUpdateDim, onUpdateRoomMat, onUpdateWall, onUpdateFloor, onToggleRoom, onConfirm }) {
   const T = window.TOKENS;
   const rooms = qcGetCurrentRooms(state);
+  const roomEnabled = state.roomEnabled || {};
   const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : null;
   const [selectedWall, setSelectedWall] = React.useState(null);
+
+  const enabledCount = rooms.filter(r => roomEnabled[r.id] !== false).length;
+  const allEnabled   = enabledCount === rooms.length;
+  const toggleAll    = () => {
+    rooms.forEach(r => {
+      onToggleRoom && onToggleRoom(r.id, allEnabled ? false : true);
+    });
+  };
 
   React.useEffect(() => { setSelectedWall(null); }, [selectedRoomId]);
 
@@ -105,30 +114,71 @@ function TabReview({ state, activeSite, selectedRoomId, onSelectRoom, onToggleEx
           border: `1px solid ${T.lineSoft}`, overflow: 'hidden',
           display: 'flex', flexDirection: 'column', minHeight: 0,
         }}>
-          <div style={{ padding: '10px 12px', fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3, borderBottom: `1px solid ${T.lineSoft}` }}>
-            공간 목록 · 면적 · 치수 (mm)
+          <div style={{ padding: '8px 12px', borderBottom: `1px solid ${T.lineSoft}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1, fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3 }}>
+              공간 목록 · <span style={{ color: enabledCount < rooms.length ? T.warn : T.ink3 }}>{enabledCount}/{rooms.length} 포함</span>
+            </span>
+            <button onClick={toggleAll} style={{
+              fontSize: 10, fontWeight: 700,
+              color: allEnabled ? T.ink3 : T.brand.primary,
+              background: allEnabled ? T.surfaceAlt : T.brand.primarySoft,
+              border: 'none', padding: '3px 8px', borderRadius: 999,
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}>
+              {allEnabled ? '전체 해제' : '전체 선택'}
+            </button>
           </div>
           <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto' }}>
-            {rooms.map(r => (
-              <button key={r.id} onClick={() => handleSelectRoom(r.id)} style={{
-                width: '100%', padding: '9px 12px', border: 'none',
-                background: selectedRoomId === r.id ? T.brand.primarySoft : '#fff',
-                borderBottom: `1px solid ${T.lineSoft}`,
-                cursor: 'pointer', fontFamily: 'inherit',
-                display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
-              }}>
-                <div style={{ width: 7, height: 7, borderRadius: 2, background: QC_ROOM_COLORS[r.id], flexShrink: 0 }}/>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, color: selectedRoomId === r.id ? T.brand.primary : T.ink }}>
-                    {r.name}{r._overridden && <span style={{ fontSize: 10, color: T.warn, marginLeft: 4 }}>✎</span>}
+            {rooms.map(r => {
+              const isActive  = selectedRoomId === r.id;
+              const isEnabled = roomEnabled[r.id] !== false;
+              return (
+                <div key={r.id} style={{
+                  display: 'flex', alignItems: 'center',
+                  borderBottom: `1px solid ${T.lineSoft}`,
+                  background: isActive ? T.brand.primarySoft : isEnabled ? '#fff' : '#F9FAFB',
+                }}>
+                  {/* 체크박스 */}
+                  <div
+                    onClick={e => { e.stopPropagation(); onToggleRoom && onToggleRoom(r.id); }}
+                    style={{
+                      padding: '0 5px 0 10px', minHeight: 40,
+                      display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0,
+                    }}
+                  >
+                    <div style={{
+                      width: 17, height: 17, borderRadius: 5,
+                      background: isEnabled ? T.brand.primary : '#fff',
+                      border: `1.5px solid ${isEnabled ? T.brand.primary : T.line}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      transition: 'all .15s', flexShrink: 0,
+                    }}>
+                      {isEnabled && <Icon name="check" size={9} color="#fff" strokeWidth={2.5}/>}
+                    </div>
                   </div>
+                  {/* 공간 정보 */}
+                  <button onClick={() => handleSelectRoom(r.id)} style={{
+                    flex: 1, padding: '8px 10px 8px 5px', border: 'none',
+                    background: 'transparent',
+                    cursor: 'pointer', fontFamily: 'inherit',
+                    display: 'flex', alignItems: 'center', gap: 8, textAlign: 'left',
+                    opacity: isEnabled ? 1 : 0.45,
+                  }}>
+                    <div style={{ width: 7, height: 7, borderRadius: 2, background: QC_ROOM_COLORS[r.id], flexShrink: 0 }}/>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? T.brand.primary : T.ink }}>
+                        {r.name}{r._overridden && <span style={{ fontSize: 9, color: T.warn, marginLeft: 3 }}>✎</span>}
+                        {!isEnabled && <span style={{ fontSize: 9.5, color: T.ink4, marginLeft: 4, fontWeight: 400 }}>(제외)</span>}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 10.5, color: T.ink3, textAlign: 'right' }}>
+                      <div style={{ fontWeight: 600 }}>{r.floor.toFixed(1)}㎡</div>
+                      <div>{r._wMm}×{r._hMm}</div>
+                    </div>
+                  </button>
                 </div>
-                <div style={{ fontSize: 10.5, color: T.ink3, textAlign: 'right' }}>
-                  <div style={{ fontWeight: 600 }}>{r.floor.toFixed(1)}㎡</div>
-                  <div>{r._wMm}×{r._hMm}</div>
-                </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

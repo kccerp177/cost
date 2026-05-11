@@ -1,11 +1,22 @@
 // Review Screen — Step 3: 도면확인
 // 공간 목록에서 탭 → 해당 공간 확대 도면 + 바닥·벽별 치수/벽지 편집 화면으로 전환
 
-function ReviewScreen({ state, activeSite, selectedRoomId, onSelectRoom, onToggleExpansion, onUpdateDim, onUpdateRoomMat, onUpdateWall, onUpdateFloor, onConfirm }) {
+function ReviewScreen({ state, activeSite, selectedRoomId, onSelectRoom, onToggleExpansion, onUpdateDim, onUpdateRoomMat, onUpdateWall, onUpdateFloor, onToggleRoom, onConfirm }) {
   const T = window.TOKENS;
   const rooms = qcGetCurrentRooms(state);
+  const roomEnabled = state.roomEnabled || {};
   const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : null;
   const [selectedWall, setSelectedWall] = React.useState(null);
+
+  const enabledCount = rooms.filter(r => roomEnabled[r.id] !== false).length;
+  const allEnabled   = enabledCount === rooms.length;
+  const toggleAll    = () => {
+    rooms.forEach(r => {
+      // 모두 켜져있으면 전체 해제, 아니면 전체 선택
+      if (allEnabled) { onToggleRoom && onToggleRoom(r.id, false); }
+      else            { onToggleRoom && onToggleRoom(r.id, true);  }
+    });
+  };
 
   React.useEffect(() => { setSelectedWall(null); }, [selectedRoomId]);
 
@@ -54,12 +65,28 @@ function ReviewScreen({ state, activeSite, selectedRoomId, onSelectRoom, onToggl
           background: '#fff', borderRadius: 12,
           border: `1px solid ${T.lineSoft}`, overflow: 'hidden',
         }}>
-          <div style={{ padding: '10px 12px 6px', fontSize: 11.5, fontWeight: 700, color: T.ink3, letterSpacing: 0.3 }}>
-            공간 {rooms.length}개 · 터치하여 수정
+          <div style={{ padding: '10px 12px 8px', display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: T.ink3, letterSpacing: 0.3 }}>
+              공간 {rooms.length}개 · <span style={{ color: enabledCount < rooms.length ? T.warn : T.ink3 }}>{enabledCount}개 계산 포함</span>
+            </span>
+            <button onClick={toggleAll} style={{
+              fontSize: 10.5, fontWeight: 700,
+              color: allEnabled ? T.ink3 : T.brand.primary,
+              background: allEnabled ? T.surfaceAlt : T.brand.primarySoft,
+              border: 'none', padding: '3px 9px', borderRadius: 999,
+              cursor: 'pointer', fontFamily: 'inherit', flexShrink: 0,
+            }}>
+              {allEnabled ? '전체 해제' : '전체 선택'}
+            </button>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', borderTop: `1px solid ${T.lineSoft}` }}>
             {rooms.map(r => (
-              <RoomRow key={r.id} room={r} selected={false} onClick={() => onSelectRoom(r.id)}/>
+              <RoomRow
+                key={r.id} room={r} selected={false}
+                enabled={roomEnabled[r.id] !== false}
+                onClick={() => onSelectRoom(r.id)}
+                onToggle={() => onToggleRoom && onToggleRoom(r.id)}
+              />
             ))}
           </div>
         </div>
@@ -87,29 +114,53 @@ function ReviewScreen({ state, activeSite, selectedRoomId, onSelectRoom, onToggl
   );
 }
 
-function RoomRow({ room, selected, onClick }) {
+function RoomRow({ room, selected, enabled, onClick, onToggle }) {
   const T = window.TOKENS;
   return (
-    <button onClick={onClick} style={{
-      padding: '10px 12px', border: 'none',
-      background: selected ? T.brand.primarySoft : '#fff',
-      borderTop: `1px solid ${T.lineSoft}`,
-      cursor: 'pointer', fontFamily: 'inherit',
-      display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+    <div style={{
+      display: 'flex', alignItems: 'center',
+      borderBottom: `1px solid ${T.lineSoft}`,
+      background: selected ? T.brand.primarySoft : enabled ? '#fff' : '#F9FAFB',
     }}>
-      <div style={{
-        width: 8, height: 8, borderRadius: 2, background: QC_ROOM_COLORS[room.id], flexShrink: 0,
-      }}/>
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div style={{ fontSize: 13, fontWeight: 600, color: selected ? T.brand.primary : T.ink }}>
-          {room.name}{room._overridden && <span style={{ fontSize: 10, color: T.warn, marginLeft: 4 }}>✎</span>}
-        </div>
-        <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>
-          {room.floor.toFixed(1)}㎡ · {room._wMm}×{room._hMm}mm
+      {/* 체크박스 */}
+      <div
+        onClick={e => { e.stopPropagation(); onToggle && onToggle(); }}
+        style={{
+          padding: '0 6px 0 12px', minHeight: 46,
+          display: 'flex', alignItems: 'center', cursor: 'pointer', flexShrink: 0,
+        }}
+      >
+        <div style={{
+          width: 20, height: 20, borderRadius: 6, flexShrink: 0,
+          background: enabled ? T.brand.primary : '#fff',
+          border: `2px solid ${enabled ? T.brand.primary : T.line}`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          transition: 'all .15s',
+        }}>
+          {enabled && <Icon name="check" size={11} color="#fff" strokeWidth={2.5}/>}
         </div>
       </div>
-      <Icon name="chevronRight" size={14} color={T.ink4}/>
-    </button>
+      {/* 공간 정보 + 이동 버튼 */}
+      <button onClick={onClick} style={{
+        flex: 1, padding: '10px 12px 10px 6px', border: 'none',
+        background: 'transparent',
+        cursor: 'pointer', fontFamily: 'inherit',
+        display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left',
+        opacity: enabled ? 1 : 0.45,
+      }}>
+        <div style={{ width: 8, height: 8, borderRadius: 2, background: QC_ROOM_COLORS[room.id], flexShrink: 0 }}/>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: selected ? T.brand.primary : T.ink }}>
+            {room.name}{room._overridden && <span style={{ fontSize: 10, color: T.warn, marginLeft: 4 }}>✎</span>}
+            {!enabled && <span style={{ fontSize: 10, color: T.ink4, marginLeft: 4, fontWeight: 500 }}>(제외)</span>}
+          </div>
+          <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>
+            {room.floor.toFixed(1)}㎡ · {room._wMm}×{room._hMm}mm
+          </div>
+        </div>
+        <Icon name="chevronRight" size={14} color={enabled ? T.ink4 : T.line}/>
+      </button>
+    </div>
   );
 }
 

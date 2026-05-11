@@ -35,7 +35,7 @@
 <script type="text/babel" src="./js/tablet-frame.jsx?v=2"></script>
 <script type="text/babel" src="../phone/js/icons.jsx?v=2"></script>
 <script type="text/babel" src="../phone/js/qc-data.jsx?v=6"></script>
-<script type="text/babel" src="../phone/js/qc-logic.jsx?v=5"></script>
+<script type="text/babel" src="../phone/js/qc-logic.jsx?v=6"></script>
 <script type="text/babel" src="../phone/js/qc-floorplan.jsx?v=3"></script>
 <script type="text/babel" src="../phone/js/screen-mode.jsx?v=2"></script>
 <script type="text/babel" src="../phone/js/qc-simple-data.jsx?v=2"></script>
@@ -44,8 +44,8 @@
 <script type="text/babel" src="./js/tab-sites.jsx?v=4"></script>
 <script type="text/babel" src="./js/tab-upload.jsx?v=2"></script>
 <script type="text/babel" src="./js/tab-convert.jsx?v=2"></script>
-<script type="text/babel" src="./js/tab-review.jsx?v=4"></script>
-<script type="text/babel" src="./js/tab-confirm.jsx?v=2"></script>
+<script type="text/babel" src="./js/tab-review.jsx?v=5"></script>
+<script type="text/babel" src="./js/tab-confirm.jsx?v=3"></script>
 <script type="text/babel" src="./js/tab-search.jsx?v=2"></script>
 <script type="text/babel" src="./js/tab-settings.jsx?v=2"></script>
 
@@ -185,6 +185,12 @@ function TabletApp() {
   const updateFloor = (roomId, floorKey) => updateState(s => ({
     floorOverrides: { ...(s.floorOverrides || {}), [roomId]: floorKey }
   }));
+  // 공간 포함/제외 토글 (force=true/false로 강제 설정, 없으면 현재 상태 반전)
+  const toggleRoomEnabled = (roomId, force) => updateState(s => {
+    const cur = (s.roomEnabled || {})[roomId] !== false;
+    const next = force !== undefined ? force : !cur;
+    return { roomEnabled: { ...(s.roomEnabled || {}), [roomId]: next } };
+  });
 
   const handleSave = () => { showToast('물량이 현장에 저장되었습니다'); setTab('sites'); setStep(1); };
   const handleSettingsSave = (rates) => setSettingsLossRates(rates);
@@ -241,7 +247,8 @@ function TabletApp() {
                   selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId}
                   onToggleExpansion={toggleExpansion} onUpdateDim={updateDim}
                   onUpdateRoomMat={updateRoomMat} onUpdateWall={updateWall}
-                  onUpdateFloor={updateFloor} onConfirm={handleReviewDone}/>}
+                  onUpdateFloor={updateFloor} onToggleRoom={toggleRoomEnabled}
+                  onConfirm={handleReviewDone}/>}
                 {tab === 'confirm'  && <TabConfirm state={state} activeSite={activeSite} sites={QC_SITES}
                   onUpdateMat={updateMat} onSave={handleSave}/>}
                 {tab === 'search'   && <TabSearch query={globalQuery} setQuery={setGlobalQuery}
