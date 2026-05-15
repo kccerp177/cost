@@ -1,9 +1,8 @@
-// Confirm Screen — Step 4: 물량확정
-// 공간별 면적표 + 자재별 소요량 + 마감재 변경 + 저장
+// Confirm Screen — Step 4: 물량확정 (읽기 전용)
+// 자재 카드 클릭 시 공간별 소요량 확인 가능
 
-function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
+function ConfirmScreen({ state, activeSite, sites, onSave }) {
   const T = window.TOKENS;
-  // roomEnabled로 비활성 공간 제외 (qcCalcMaterials와 동일 기준)
   const roomEnabled = state.roomEnabled || {};
   const rooms = qcGetCurrentRooms(state).filter(r => roomEnabled[r.id] !== false);
   const mats = qcCalcMaterials(state);
@@ -15,11 +14,8 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
   const totalWall  = rooms.reduce((s, r) => s + r.wall, 0);
 
   const handleSaveClick = () => {
-    if (activeSite) {
-      onSave(activeSite);
-    } else {
-      setShowSiteAssign(true);
-    }
+    if (activeSite) { onSave(activeSite); }
+    else            { setShowSiteAssign(true); }
   };
 
   return (
@@ -37,6 +33,18 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
             padding: '4px 9px', borderRadius: 999,
           }}>{matEntries.length}종</span>
         </div>
+      </div>
+
+      {/* 읽기 전용 안내 배너 */}
+      <div style={{
+        padding: '7px 14px', background: T.successSoft,
+        borderBottom: `1px solid ${T.success}22`,
+        display: 'flex', alignItems: 'center', gap: 6,
+      }}>
+        <Icon name="check" size={12} color={T.success} strokeWidth={2.5}/>
+        <span style={{ fontSize: 11, fontWeight: 600, color: T.success }}>
+          물량이 확정되었습니다 · 자재를 눌러 공간별 수량을 확인하세요
+        </span>
       </div>
 
       {/* 서브 탭 */}
@@ -62,7 +70,7 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
       </div>
 
       <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 14, paddingBottom: 80 }}>
-        {tab === 'mat'  && <MatTab entries={matEntries} onUpdate={onUpdateMat}/>}
+        {tab === 'mat'  && <MatTab entries={matEntries} rooms={rooms} state={state}/>}
         {tab === 'area' && <AreaTab rooms={rooms} totalFloor={totalFloor} totalWall={totalWall}/>}
       </div>
 
@@ -97,56 +105,124 @@ function ConfirmScreen({ state, activeSite, sites, onUpdateMat, onSave }) {
 }
 
 // ─── 자재 소요량 탭 ────────────────────────────────────────
-function MatTab({ entries, onUpdate }) {
-  const T = window.TOKENS;
+function MatTab({ entries, rooms, state }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      {entries.map(([k, m]) => <MatCard key={k} matKey={k} mat={m} onUpdate={onUpdate}/>)}
+      {entries.map(([k, m]) => (
+        <MatCard key={k} matKey={k} mat={m} rooms={rooms} state={state}/>
+      ))}
     </div>
   );
 }
 
-function MatCard({ matKey, mat, onUpdate }) {
+// ─── 자재 카드 (읽기 전용 + 클릭 시 공간별 상세) ──────────
+function MatCard({ matKey, mat, rooms, state }) {
   const T = window.TOKENS;
-  const [val, setVal] = React.useState(String(mat.qty));
-  React.useEffect(() => { setVal(String(mat.qty)); }, [mat.qty]);
-  const commit = () => {
-    const n = parseInt(val, 10);
-    if (!isNaN(n) && n >= 0 && n !== mat.qty) onUpdate(matKey, n);
-  };
+  const [expanded, setExpanded] = React.useState(false);
+
   const catColor = {
     floor: '#3B82F6', wall: '#8B5CF6', ceiling: '#A855F7',
     fixture: '#F59E0B', etc: '#14B8A6',
   }[mat.cat] || T.ink3;
+
+  // 공간별 수량 계산
+  const roomBreakdown = React.useMemo(() => {
+    if (!rooms || !state) return [];
+    return rooms
+      .map(room => {
+        const roomMats = qcCalcMaterialsForRoom(room, state);
+        const rm = roomMats[matKey];
+        return { room, qty: rm ? rm.qty : 0 };
+      })
+      .filter(rb => rb.qty > 0);
+  }, [matKey, rooms, state]);
+
   return (
     <div style={{
-      background: '#fff', borderRadius: 12, padding: 12,
-      border: `1px solid ${T.lineSoft}`,
+      background: '#fff', borderRadius: 12,
+      border: `1px solid ${expanded ? catColor + '55' : T.lineSoft}`,
+      overflow: 'hidden', transition: 'border-color .2s',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-        <span style={{
-          fontSize: 9.5, fontWeight: 700, color: catColor,
-          background: catColor + '18', padding: '2px 7px', borderRadius: 4,
-        }}>{QC_CAT_LABEL[mat.cat]}</span>
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{mat.name}</span>
-      </div>
-      <div style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
-      }}>
-        <div style={{ fontSize: 10.5, color: T.ink3 }}>
-          산출 {mat.rawQty.toFixed(1)}{mat.unit}
-          {mat.lossRate > 0 && <> · 로스 {(mat.lossRate * 100).toFixed(0)}%</>}
+      {/* 메인 행 — 클릭 시 공간별 상세 펼치기 */}
+      <div
+        onClick={() => setExpanded(e => !e)}
+        style={{ padding: 12, cursor: 'pointer' }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+          <span style={{
+            fontSize: 9.5, fontWeight: 700, color: catColor,
+            background: catColor + '18', padding: '2px 7px', borderRadius: 4,
+          }}>{QC_CAT_LABEL[mat.cat]}</span>
+          <span style={{ flex: 1, fontSize: 13, fontWeight: 700 }}>{mat.name}</span>
+          {/* 펼치기/접기 화살표 */}
+          <span style={{
+            fontSize: 10, color: T.ink4,
+            display: 'inline-block',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform .2s',
+          }}>▶</span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <input type="number" value={val} onChange={e => setVal(e.target.value)} onBlur={commit} style={{
-            width: 64, height: 32, padding: '0 10px', borderRadius: 8,
-            border: `1px solid ${T.line}`, background: T.surfaceAlt,
-            fontSize: 13, fontWeight: 700, outline: 'none', textAlign: 'right',
-            fontFamily: 'inherit',
-          }}/>
-          <span style={{ fontSize: 11, fontWeight: 700, color: T.ink2, width: 24 }}>{mat.unit}</span>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ fontSize: 10.5, color: T.ink3 }}>
+            산출 {mat.rawQty.toFixed(1)}{mat.unit}
+            {mat.lossRate > 0 && <> · 로스 {(mat.lossRate * 100).toFixed(0)}%</>}
+          </div>
+          {/* 읽기 전용 수량 표시 */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+            <span style={{ fontSize: 22, fontWeight: 800, color: T.ink, letterSpacing: -0.5 }}>{mat.qty}</span>
+            <span style={{ fontSize: 12, fontWeight: 700, color: T.ink2 }}>{mat.unit}</span>
+          </div>
         </div>
       </div>
+
+      {/* 공간별 소요량 상세 */}
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${catColor}33`, background: catColor + '08' }}>
+          <div style={{
+            padding: '6px 12px 4px',
+            fontSize: 10, fontWeight: 700, color: catColor, letterSpacing: 0.4,
+          }}>
+            공간별 소요량
+          </div>
+          {roomBreakdown.length === 0 ? (
+            <div style={{ padding: '8px 12px 10px', fontSize: 11, color: T.ink4 }}>
+              공간별 데이터 없음
+            </div>
+          ) : (
+            roomBreakdown.map(rb => (
+              <div key={rb.room.id} style={{
+                display: 'flex', alignItems: 'center', gap: 8,
+                padding: '8px 12px',
+                borderTop: `1px solid ${catColor}22`,
+              }}>
+                <div style={{
+                  width: 7, height: 7, borderRadius: 2,
+                  background: QC_ROOM_COLORS[rb.room.id], flexShrink: 0,
+                }}/>
+                <span style={{ flex: 1, fontSize: 12, fontWeight: 500, color: T.ink2 }}>
+                  {rb.room.name}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{rb.qty}</span>
+                <span style={{ fontSize: 11, color: T.ink3, width: 26 }}>{mat.unit}</span>
+              </div>
+            ))
+          )}
+          {/* 합계 행 */}
+          {roomBreakdown.length > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8,
+              padding: '7px 12px 9px',
+              borderTop: `1px solid ${catColor}44`,
+              background: catColor + '14',
+            }}>
+              <div style={{ width: 7, height: 7, flexShrink: 0 }}/>
+              <span style={{ flex: 1, fontSize: 11.5, fontWeight: 700, color: catColor }}>합계</span>
+              <span style={{ fontSize: 14, fontWeight: 800, color: catColor }}>{mat.qty}</span>
+              <span style={{ fontSize: 11, color: catColor, width: 26 }}>{mat.unit}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
@@ -164,7 +240,10 @@ function AreaTab({ rooms, totalFloor, totalWall }) {
         padding: '9px 10px', background: T.surfaceAlt,
         fontSize: 10.5, fontWeight: 700, color: T.ink3, letterSpacing: 0.2,
       }}>
-        <span>공간</span><span style={{ textAlign: 'right' }}>바닥</span><span style={{ textAlign: 'right' }}>벽</span><span style={{ textAlign: 'right' }}>천장</span>
+        <span>공간</span>
+        <span style={{ textAlign: 'right' }}>바닥</span>
+        <span style={{ textAlign: 'right' }}>벽</span>
+        <span style={{ textAlign: 'right' }}>천장</span>
       </div>
       {rooms.map(r => (
         <div key={r.id} style={{
@@ -208,14 +287,10 @@ function SiteAssignModal({ sites, onPick, onClose }) {
   const registerNew = () => {
     if (!newName.trim()) return;
     onPick({
-      id: 'new_' + Date.now(),
-      name: newName.trim(),
-      apt: newName.trim(),
-      addr: '직접 등록',
-      size: '-',
+      id: 'new_' + Date.now(), name: newName.trim(), apt: newName.trim(),
+      addr: '직접 등록', size: '-',
       hasDrawing: true, hasQuantity: true,
-      updatedAt: '방금 등록',
-      thumb: '#2563EB',
+      updatedAt: '방금 등록', thumb: '#2563EB',
     });
   };
 

@@ -1,6 +1,6 @@
 // Tablet Confirm Tab — Step 4
 
-function TabConfirm({ state, activeSite, sites, onUpdateMat, onSave }) {
+function TabConfirm({ state, activeSite, sites, onSave }) {
   const T = window.TOKENS;
   // roomEnabled로 비활성 공간 제외 (qcCalcMaterials와 동일 기준)
   const roomEnabled = state.roomEnabled || {};
@@ -38,13 +38,26 @@ function TabConfirm({ state, activeSite, sites, onUpdateMat, onSave }) {
         </button>
       </div>
 
+      {/* 읽기전용 안내 배너 */}
+      <div style={{
+        margin: '0 16px', marginTop: 12,
+        padding: '9px 14px', borderRadius: 10,
+        background: '#FFF7ED', border: '1px solid #FED7AA',
+        display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0,
+      }}>
+        <span style={{ fontSize: 14 }}>🔒</span>
+        <span style={{ fontSize: 12, color: '#92400E', fontWeight: 600 }}>
+          확정된 물량입니다. 수량을 변경하려면 도면 확인 탭에서 수정해주세요.
+        </span>
+      </div>
+
       <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: 16 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 14 }}>
           {/* 좌: 자재 소요량 */}
           <div style={{ background: '#fff', borderRadius: 14, padding: 14, border: `1px solid ${T.lineSoft}` }}>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 10, color: T.ink2 }}>자재 소요량</div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-              {matEntries.map(([k, m]) => <MatMini key={k} matKey={k} mat={m} onUpdate={onUpdateMat}/>)}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+              {matEntries.map(([k, m]) => <MatMini key={k} matKey={k} mat={m} rooms={rooms} state={state}/>)}
             </div>
           </div>
 
@@ -99,44 +112,88 @@ function TabConfirm({ state, activeSite, sites, onUpdateMat, onSave }) {
   );
 }
 
-function MatMini({ matKey, mat, onUpdate }) {
+function MatMini({ matKey, mat, rooms, state }) {
   const T = window.TOKENS;
-  const [val, setVal] = React.useState(String(mat.qty));
-  React.useEffect(() => { setVal(String(mat.qty)); }, [mat.qty]);
-  const commit = () => {
-    const n = parseInt(val, 10);
-    if (!isNaN(n) && n >= 0 && n !== mat.qty) onUpdate(matKey, n);
-  };
+  const [expanded, setExpanded] = React.useState(false);
   const catColor = {
     floor: '#3B82F6', wall: '#8B5CF6', ceiling: '#A855F7',
     fixture: '#F59E0B', etc: '#14B8A6',
   }[mat.cat] || T.ink3;
+
+  const roomBreakdown = React.useMemo(() => {
+    return (rooms || [])
+      .map(room => {
+        const roomMats = qcCalcMaterialsForRoom(room, state);
+        const rm = roomMats[matKey];
+        return { room, qty: rm ? rm.qty : 0 };
+      })
+      .filter(rb => rb.qty > 0);
+  }, [matKey, rooms, state]);
+
   return (
     <div style={{
-      padding: 10, borderRadius: 10,
-      border: `1px solid ${T.lineSoft}`, background: T.surfaceAlt,
+      borderRadius: 10, border: `1px solid ${T.lineSoft}`, background: T.surfaceAlt, overflow: 'hidden',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+      {/* 메인 행 */}
+      <div
+        onClick={() => roomBreakdown.length > 0 && setExpanded(e => !e)}
+        style={{
+          padding: '10px 12px', display: 'flex', alignItems: 'center', gap: 8,
+          cursor: roomBreakdown.length > 0 ? 'pointer' : 'default',
+        }}
+      >
         <span style={{
           fontSize: 9, fontWeight: 700, color: catColor,
-          background: catColor + '18', padding: '2px 6px', borderRadius: 3,
+          background: catColor + '18', padding: '2px 6px', borderRadius: 3, flexShrink: 0,
         }}>{QC_CAT_LABEL[mat.cat]}</span>
         <span style={{ flex: 1, fontSize: 12, fontWeight: 700 }}>{mat.name}</span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}>
-        <div style={{ fontSize: 10, color: T.ink4 }}>
+        <div style={{ fontSize: 10, color: T.ink4, flexShrink: 0 }}>
           산출 {mat.rawQty.toFixed(1)}{mat.unit}
           {mat.lossRate > 0 && <> · {(mat.lossRate * 100).toFixed(0)}%</>}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-          <input type="number" value={val} onChange={e => setVal(e.target.value)} onBlur={commit} style={{
-            width: 52, height: 28, padding: '0 8px', borderRadius: 6,
-            border: `1px solid ${T.line}`, background: '#fff',
-            fontSize: 11.5, fontWeight: 700, outline: 'none', textAlign: 'right', fontFamily: 'inherit',
-          }}/>
-          <span style={{ fontSize: 10.5, fontWeight: 700, color: T.ink2 }}>{mat.unit}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 800, color: T.ink }}>{mat.qty}</span>
+          <span style={{ fontSize: 10.5, color: T.ink3 }}>{mat.unit}</span>
         </div>
+        {roomBreakdown.length > 0 && (
+          <span style={{
+            fontSize: 11, color: T.ink4, transition: 'transform .2s',
+            transform: expanded ? 'rotate(90deg)' : 'rotate(0deg)',
+            display: 'inline-block', flexShrink: 0,
+          }}>▶</span>
+        )}
       </div>
+
+      {/* 공간별 수량 */}
+      {expanded && (
+        <div style={{ borderTop: `1px solid ${T.lineSoft}`, background: '#fff' }}>
+          {roomBreakdown.map(({ room, qty }) => (
+            <div key={room.id} style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '6px 12px 6px 20px', borderBottom: `1px dashed ${T.lineSoft}`,
+              fontSize: 11.5,
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: T.ink3 }}>
+                <span style={{ width: 7, height: 7, borderRadius: 2, background: QC_ROOM_COLORS[room.id], display: 'inline-block', flexShrink: 0 }}/>
+                {room.name}
+              </div>
+              <span style={{ fontWeight: 700, color: T.ink }}>
+                {qty} <span style={{ fontSize: 10, color: T.ink4, fontWeight: 400 }}>{mat.unit}</span>
+              </span>
+            </div>
+          ))}
+          {roomBreakdown.length > 1 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '7px 12px 7px 20px', background: T.brand.primarySoft,
+              fontSize: 11.5, fontWeight: 700, color: T.brand.primary,
+            }}>
+              <span>합계</span>
+              <span>{mat.qty} {mat.unit}</span>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

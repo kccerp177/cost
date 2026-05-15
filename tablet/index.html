@@ -40,12 +40,12 @@
 <script type="text/babel" src="../phone/js/screen-mode.jsx?v=2"></script>
 <script type="text/babel" src="../phone/js/qc-simple-data.jsx?v=2"></script>
 <script type="text/babel" src="../phone/js/screen-simple.jsx?v=4"></script>
-<script type="text/babel" src="./js/tablet-shell.jsx?v=4"></script>
-<script type="text/babel" src="./js/tab-sites.jsx?v=4"></script>
-<script type="text/babel" src="./js/tab-upload.jsx?v=2"></script>
+<script type="text/babel" src="./js/tablet-shell.jsx?v=5"></script>
+<script type="text/babel" src="./js/tab-sites.jsx?v=5"></script>
+<script type="text/babel" src="./js/tab-upload.jsx?v=3"></script>
 <script type="text/babel" src="./js/tab-convert.jsx?v=2"></script>
-<script type="text/babel" src="./js/tab-review.jsx?v=5"></script>
-<script type="text/babel" src="./js/tab-confirm.jsx?v=3"></script>
+<script type="text/babel" src="./js/tab-review.jsx?v=6"></script>
+<script type="text/babel" src="./js/tab-confirm.jsx?v=4"></script>
 <script type="text/babel" src="./js/tab-search.jsx?v=2"></script>
 <script type="text/babel" src="./js/tab-settings.jsx?v=2"></script>
 
@@ -154,6 +154,7 @@ function TabletApp() {
   const [selectedRoomId, setSelectedRoomId] = React.useState(null);
   const [toast, setToast] = React.useState('');
   const [settingsLossRates, setSettingsLossRates] = React.useState(initLossRates);
+  const [confirmed, setConfirmed] = React.useState(false);
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2200); };
 
@@ -164,13 +165,13 @@ function TabletApp() {
 
   const handleSiteSelect = (site) => {
     setActiveSite(site);
-    if (site.hasQuantity)      { setStep(4); setTab('confirm'); }
+    if (site.hasQuantity)      { setStep(4); setTab('confirm'); setConfirmed(true); }
     else if (site.hasDrawing)  { setStep(3); setTab('review'); }
-    else                       { setStep(3); setTab('review'); }  // 신규도 도면 확인으로
+    else                       { setStep(1); setTab('upload'); }  // 신규 → 업로드
   };
   const handleUploaded   = () => { setStep(2); setTab('convert'); };
   const handleConverted  = () => { setStep(3); setTab('review'); };
-  const handleReviewDone = () => { setStep(4); setTab('confirm'); };
+  const handleReviewDone = () => { setStep(4); setTab('confirm'); setConfirmed(true); };
 
   const updateState = (fn) => setState(prev => ({ ...prev, ...fn(prev) }));
   const toggleExpansion = (k, v) => updateState(s => ({ expansionState: { ...s.expansionState, [k]: v } }));
@@ -197,16 +198,21 @@ function TabletApp() {
 
   const handleTabChange = (newTab) => {
     const isLocked = !activeSite && step <= 1;
-    if (isLocked && (newTab === 'review' || newTab === 'confirm')) {
+    if (isLocked && newTab === 'review') {
       showToast('현장을 선택하거나 도면을 먼저 업로드해주세요');
       return;
     }
-    // 현장·업로드 탭으로 이동 시 도면 확인·자재 확인 정보 초기화
-    if (newTab === 'sites' || newTab === 'upload') {
+    if (newTab === 'confirm' && !confirmed) {
+      showToast('도면 확인에서 물량 확정하기를 먼저 눌러주세요');
+      return;
+    }
+    // 현장 탭으로 이동 시 전체 초기화
+    if (newTab === 'sites') {
       setState(qcCreateInitialState());
       setActiveSite(null);
       setSelectedRoomId(null);
       setStep(1);
+      setConfirmed(false);
     }
     setTab(newTab);
     if (newTab === 'review')  setStep(3);
@@ -227,7 +233,7 @@ function TabletApp() {
               showConfirm={tab === 'review'}
             />
             <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
-              {!isFullScreen && <TabletSideBar tab={tab} onChange={handleTabChange} step={step} activeSite={activeSite}/>}
+              {!isFullScreen && <TabletSideBar tab={tab} onChange={handleTabChange} step={step} activeSite={activeSite} confirmed={confirmed}/>}
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
                 {tab === 'mode'    && <TabletModeSelect onSelect={handleModeSelect}/>}
                 {tab === 'simple'  && (
@@ -240,8 +246,8 @@ function TabletApp() {
                     </div>
                   </div>
                 )}
-                {tab === 'sites'   && <TabSites sites={QC_SITES} onSelect={handleSiteSelect}/>}
-                {tab === 'upload'  && <TabUpload activeSite={activeSite} sites={QC_SITES} onUploaded={handleUploaded} onPickSite={handleSiteSelect}/>}
+                {tab === 'sites'   && <TabSites sites={QC_SITES} onSelect={handleSiteSelect} onNew={() => { setActiveSite(null); setTab('upload'); setStep(1); }}/>}
+                {tab === 'upload'  && <TabUpload activeSite={activeSite} sites={QC_SITES} onUploaded={handleUploaded} onPickSite={handleSiteSelect} onBack={() => handleTabChange('sites')}/>}
                 {tab === 'convert' && <TabConvert activeSite={activeSite} onDone={handleConverted}/>}
                 {tab === 'review'  && <TabReview state={state} activeSite={activeSite}
                   selectedRoomId={selectedRoomId} onSelectRoom={setSelectedRoomId}
@@ -250,7 +256,7 @@ function TabletApp() {
                   onUpdateFloor={updateFloor} onToggleRoom={toggleRoomEnabled}
                   onConfirm={handleReviewDone}/>}
                 {tab === 'confirm'  && <TabConfirm state={state} activeSite={activeSite} sites={QC_SITES}
-                  onUpdateMat={updateMat} onSave={handleSave}/>}
+                  onSave={handleSave}/>}
                 {tab === 'search'   && <TabSearch query={globalQuery} setQuery={setGlobalQuery}
                   sites={QC_SITES} onSiteSelect={handleSiteSelect}/>}
                 {tab === 'settings' && <TabSettings lossRates={settingsLossRates} onSave={handleSettingsSave}/>}
