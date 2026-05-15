@@ -291,7 +291,7 @@ function RoomEditView({ room, state, selectedWall, onSelectWall, onUpdateDim, on
         </div>
       </div>
 
-      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', paddingBottom: 80 }}>
+      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', paddingBottom: 16 }}>
 
         {/* 확대 도면 */}
         <div style={{ background: '#FAF3E0', borderBottom: `1px solid ${T.lineSoft}`, height: 220 }}>
@@ -474,24 +474,6 @@ function RoomEditView({ room, state, selectedWall, onSelectWall, onUpdateDim, on
         </div>
       </div>
 
-      {/* 물량 확정 버튼 */}
-      <div style={{
-        position: 'absolute', bottom: 0, left: 0, right: 0,
-        padding: '10px 14px', background: 'rgba(255,255,255,0.96)',
-        borderTop: `1px solid ${T.lineSoft}`, backdropFilter: 'blur(8px)',
-      }}>
-        <button onClick={onConfirm} style={{
-          width: '100%', height: 46, borderRadius: 12, border: 'none',
-          background: T.brand.primary, color: '#fff',
-          fontSize: 14, fontWeight: 700, letterSpacing: -0.2,
-          boxShadow: `0 6px 16px ${T.brand.primary}2e`,
-          cursor: 'pointer', fontFamily: 'inherit',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        }}>
-          <Icon name="box" size={16} color="#fff" strokeWidth={2.2}/>
-          물량 확정하기
-        </button>
-      </div>
     </div>
   );
 }
