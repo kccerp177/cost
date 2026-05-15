@@ -368,24 +368,77 @@ function WallEditCard({ room, state, selectedWall, onSelectWall, onUpdateDim, on
   );
 }
 
+const TAB_CAT_FILTER_OPTS = [
+  { v: 'floor',   label: '바닥', color: '#3B82F6' },
+  { v: 'wall',    label: '벽',   color: '#8B5CF6' },
+  { v: 'ceiling', label: '천장', color: '#A855F7' },
+  { v: 'fixture', label: '설비', color: '#F59E0B' },
+  { v: 'etc',     label: '기타', color: '#14B8A6' },
+];
+
 // ─── 예상 소요량 카드 ─────────────────────
 function RoomMatCard({ room, state, onUpdate }) {
   const T = window.TOKENS;
   const mats = qcCalcMaterialsForRoom(room, state);
-  const entries = qcSortMaterialEntries(mats);
+  const allEntries = qcSortMaterialEntries(mats);
+
+  // 이 공간에 실제로 존재하는 카테고리만 필터 버튼으로 표시
+  const presentCats = React.useMemo(() => {
+    const catSet = new Set(allEntries.map(([, m]) => m.cat));
+    return TAB_CAT_FILTER_OPTS.filter(c => catSet.has(c.v));
+  }, [room.id, allEntries.length]);
+
+  const [enabledCats, setEnabledCats] = React.useState(() => new Set(presentCats.map(c => c.v)));
+
+  // 공간 바뀌면 필터 리셋
+  React.useEffect(() => {
+    setEnabledCats(new Set(presentCats.map(c => c.v)));
+  }, [room.id]);
+
+  const toggleCat = (cat) => {
+    setEnabledCats(prev => {
+      const next = new Set(prev);
+      if (next.has(cat)) {
+        if (next.size > 1) next.delete(cat);
+      } else {
+        next.add(cat);
+      }
+      return next;
+    });
+  };
+
+  const filteredEntries = allEntries.filter(([, m]) => enabledCats.has(m.cat));
+
   return (
     <div style={{
       background: '#fff', borderRadius: 12, padding: 10,
       border: `1px solid ${T.lineSoft}`,
     }}>
-      <div style={{ fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3, marginBottom: 6, padding: '0 4px' }}>
-        예상 소요량 · 수량 수정 가능
+      <div style={{ fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3, marginBottom: 8, padding: '0 4px' }}>
+        예상 소요량 · 카테고리 선택 후 수량 확인
       </div>
-      {entries.length === 0 ? (
+      {/* 카테고리 필터 버튼 */}
+      {presentCats.length > 0 && (
+        <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 8, padding: '0 4px' }}>
+          {presentCats.map(c => {
+            const on = enabledCats.has(c.v);
+            return (
+              <button key={c.v} onClick={() => toggleCat(c.v)} style={{
+                padding: '4px 10px', borderRadius: 999, fontSize: 11, fontWeight: 700,
+                background: on ? c.color : '#fff',
+                color: on ? '#fff' : c.color,
+                border: `1.5px solid ${c.color}`,
+                cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+              }}>{c.label}</button>
+            );
+          })}
+        </div>
+      )}
+      {filteredEntries.length === 0 ? (
         <div style={{ fontSize: 11, color: T.ink4, padding: 8 }}>정의된 자재 없음</div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {entries.map(([k, m]) => <QtyRow key={k} matKey={k} mat={m} roomId={room.id} onUpdate={onUpdate}/>)}
+          {filteredEntries.map(([k, m]) => <QtyRow key={k} matKey={k} mat={m} roomId={room.id} onUpdate={onUpdate}/>)}
         </div>
       )}
     </div>

@@ -183,6 +183,14 @@ const FLOOR_OPTS = [
   { v: 'floor_marble', label: '대리석' },
 ];
 
+const CAT_FILTER_OPTS = [
+  { v: 'floor',   label: '바닥', color: '#3B82F6' },
+  { v: 'wall',    label: '벽',   color: '#8B5CF6' },
+  { v: 'ceiling', label: '천장', color: '#A855F7' },
+  { v: 'fixture', label: '설비', color: '#F59E0B' },
+  { v: 'etc',     label: '기타', color: '#14B8A6' },
+];
+
 function RoomEditView({ room, state, selectedWall, onSelectWall, onUpdateDim, onUpdateRoomMat, onUpdateWall, onUpdateFloor, onBack, onConfirm }) {
   const T = window.TOKENS;
   const wallOverrides  = (state.wallOverrides  || {})[room.id] || {};
@@ -223,6 +231,20 @@ function RoomEditView({ room, state, selectedWall, onSelectWall, onUpdateDim, on
   // ─── 일괄 적용 상태 — 모든 벽 동일 여부 ────────────────
   const allWallTypes = WALL_KEYS.map(w => getWallData(w.key).wallpaper);
   const isUniform    = allWallTypes.every(t => t === allWallTypes[0]);
+
+  // ─── 카테고리 필터 (예상 소요량) ────────────────────────
+  const [enabledCats, setEnabledCats] = React.useState(
+    () => new Set(['floor', 'wall', 'ceiling', 'fixture', 'etc'])
+  );
+  React.useEffect(() => {
+    setEnabledCats(new Set(['floor', 'wall', 'ceiling', 'fixture', 'etc']));
+  }, [room.id]);
+  const toggleCat = (cat) => setEnabledCats(prev => {
+    const next = new Set(prev);
+    if (next.has(cat)) { if (next.size > 1) next.delete(cat); } // 최소 1개 유지
+    else next.add(cat);
+    return next;
+  });
 
   // ─── 핸들러 ─────────────────────────────────────────────
   const commitLen = (wallKey) => {
@@ -399,27 +421,55 @@ function RoomEditView({ room, state, selectedWall, onSelectWall, onUpdateDim, on
           </div>
 
           {/* ── 예상 소요량 ───────────────────────────── */}
-          <div style={{
-            background: '#fff', borderRadius: 12, padding: 12,
-            border: `1px solid ${T.lineSoft}`, marginBottom: 12,
-          }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3, marginBottom: 8 }}>
-              예상 소요량 · 수량 직접 수정 가능
-            </div>
-            {(() => {
-              const mats = qcCalcMaterialsForRoom(room, state);
-              const matEntries = qcSortMaterialEntries(mats);
-              return matEntries.length === 0 ? (
-                <div style={{ fontSize: 11, color: T.ink4, padding: '4px 0' }}>이 공간에 정의된 자재가 없습니다</div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                  {matEntries.map(([k, m]) => (
-                    <MatQtyRow key={k} matKey={k} mat={m} roomId={room.id} onUpdate={onUpdateRoomMat}/>
-                  ))}
+          {(() => {
+            const mats = qcCalcMaterialsForRoom(room, state);
+            const matEntries = qcSortMaterialEntries(mats);
+            // 이 공간에 존재하는 카테고리만 버튼 표시
+            const existingCats = new Set(matEntries.map(([, m]) => m.cat));
+            const filteredEntries = matEntries.filter(([, m]) => enabledCats.has(m.cat));
+            return (
+              <div style={{
+                background: '#fff', borderRadius: 12, padding: 12,
+                border: `1px solid ${T.lineSoft}`, marginBottom: 12,
+              }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: T.ink3, letterSpacing: 0.3, marginBottom: 10 }}>
+                  예상 소요량 · 카테고리 선택 후 수량 확인
                 </div>
-              );
-            })()}
-          </div>
+
+                {/* 카테고리 선택 필터 */}
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 10 }}>
+                  {CAT_FILTER_OPTS.filter(c => existingCats.has(c.v)).map(cat => {
+                    const active = enabledCats.has(cat.v);
+                    return (
+                      <button key={cat.v} onClick={() => toggleCat(cat.v)} style={{
+                        height: 26, padding: '0 11px', borderRadius: 999,
+                        background: active ? cat.color : '#fff',
+                        color: active ? '#fff' : T.ink3,
+                        border: `1.5px solid ${active ? cat.color : T.line}`,
+                        fontSize: 11, fontWeight: 700,
+                        cursor: 'pointer', fontFamily: 'inherit', transition: 'all .15s',
+                      }}>
+                        {cat.label}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* 필터된 자재 목록 */}
+                {filteredEntries.length === 0 ? (
+                  <div style={{ fontSize: 11, color: T.ink4, padding: '4px 0' }}>
+                    선택된 카테고리에 자재가 없습니다
+                  </div>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {filteredEntries.map(([k, m]) => (
+                      <MatQtyRow key={k} matKey={k} mat={m} roomId={room.id} onUpdate={onUpdateRoomMat}/>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
         </div>
       </div>

@@ -37,8 +37,22 @@ function SitesScreen({ sites, onSelect, onNew, onBackToMode }) {
         padding: '14px 18px 12px',
         background: '#fff', borderBottom: `1px solid ${T.lineSoft}`,
       }}>
-        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>현장</div>
-        <div style={{ fontSize: 11.5, color: T.ink3, marginTop: 2 }}>도면 · 물량 기록이 저장된 현장 {sites.length}곳</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: -0.3 }}>현장</div>
+            <div style={{ fontSize: 11.5, color: T.ink3, marginTop: 2 }}>도면 · 물량 기록이 저장된 현장 {sites.length}곳</div>
+          </div>
+          <button onClick={onNew} style={{
+            height: 34, padding: '0 13px', borderRadius: 10,
+            background: T.brand.primary, border: 'none',
+            color: '#fff', fontSize: 12, fontWeight: 700,
+            cursor: 'pointer', fontFamily: 'inherit',
+            display: 'flex', alignItems: 'center', gap: 5, flexShrink: 0,
+          }}>
+            <Icon name="plus" size={13} color="#fff" strokeWidth={2.5}/>
+            신규 현장
+          </button>
+        </div>
       </div>
       {/* 검색 */}
       <div style={{ padding: '8px 14px 6px', background: '#fff', borderBottom: `1px solid ${T.lineSoft}` }}>

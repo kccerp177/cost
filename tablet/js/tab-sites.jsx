@@ -1,6 +1,6 @@
 // Tablet Sites Tab — 현장 그리드
 
-function TabSites({ sites, onSelect }) {
+function TabSites({ sites, onSelect, onNew }) {
   const T = window.TOKENS;
   const [q, setQ] = React.useState('');
   // 최신 등록순(regOrder 내림차순)으로 정렬
@@ -15,6 +15,16 @@ function TabSites({ sites, onSelect }) {
           <div style={{ fontSize: 19, fontWeight: 700, letterSpacing: -0.3 }}>현장</div>
           <div style={{ fontSize: 12, color: T.ink3, marginTop: 3 }}>도면 · 물량 기록이 저장된 현장 {sites.length}곳</div>
         </div>
+        <button onClick={onNew} style={{
+          height: 36, padding: '0 14px', borderRadius: 10,
+          background: T.brand.primary, border: 'none',
+          color: '#fff', fontSize: 12.5, fontWeight: 700,
+          cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0,
+        }}>
+          <Icon name="plus" size={14} color="#fff" strokeWidth={2.5}/>
+          신규 현장
+        </button>
         <div style={{ position: 'relative', width: 280 }}>
           <Icon name="search" size={15} color={T.ink4} style={{ position: 'absolute', left: 11, top: '50%', transform: 'translateY(-50%)' }}/>
           <input

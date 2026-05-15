@@ -42,14 +42,13 @@ function TabletTopBar({ activeSite, onConfirm, showConfirm }) {
   );
 }
 
-function TabletSideBar({ tab, onChange, step, activeSite }) {
+function TabletSideBar({ tab, onChange, step, activeSite, confirmed }) {
   const T = window.TOKENS;
   const isLocked = !activeSite && step <= 1;
   const items = [
     { key: 'sites',    label: '현장',     icon: 'building', lockable: false },
-    { key: 'upload',   label: '업로드',   icon: 'upload',   lockable: false },
     { key: 'review',   label: '도면 확인', icon: 'image',   lockable: true  },
-    { key: 'confirm',  label: '자재 확인', icon: 'box',     lockable: true  },
+    { key: 'confirm',  label: '자재 확인', icon: 'box',     lockable: false },
     { key: 'settings', label: '설정',     icon: 'settings', lockable: false },
   ];
   return (
@@ -62,7 +61,9 @@ function TabletSideBar({ tab, onChange, step, activeSite }) {
       </div>
       {items.map(it => {
         const active = tab === it.key;
-        const locked = isLocked && it.lockable;
+        const reviewLocked  = it.key === 'review'  && isLocked;
+        const confirmLocked = it.key === 'confirm' && !confirmed;
+        const locked = reviewLocked || confirmLocked;
         return (
           <button key={it.key} onClick={() => onChange(it.key)} style={{
             padding: '10px 12px', borderRadius: 9, border: 'none',
