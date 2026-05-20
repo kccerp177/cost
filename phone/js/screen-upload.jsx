@@ -3,13 +3,23 @@
 
 function UploadScreen({ activeSite, sites, onUploaded, onPickSite, onBack }) {
   const T = window.TOKENS;
-  const [method, setMethod] = React.useState(null); // null | 'address' | 'image'
+  const [method, setMethod] = React.useState(null); // null | 'address' | 'image' | 'existing'
 
   if (method === 'address') {
     return <AddressSearchView T={T} onUploaded={onUploaded} onBack={() => setMethod(null)}/>;
   }
   if (method === 'image') {
     return <ImageUploadView T={T} onUploaded={onUploaded} onBack={() => setMethod(null)}/>;
+  }
+  if (method === 'existing') {
+    return (
+      <ExistingSiteView
+        T={T} sites={sites}
+        onPickSite={onPickSite}
+        onSelectForImageUpload={(site) => { onPickSite(site); setMethod('image'); }}
+        onBack={() => setMethod(null)}
+      />
+    );
   }
 
   // ── 방법 선택 화면 ─────────────────────────────────────────
@@ -104,6 +114,39 @@ function UploadScreen({ activeSite, sites, onUploaded, onPickSite, onBack }) {
             </div>
           </div>
           <Icon name="chevronRight" size={16} color={T.ink4}/>
+        </button>
+
+        {/* 구분선 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ flex: 1, height: 1, background: T.line }}/>
+          <span style={{ fontSize: 11, color: T.ink4, fontWeight: 500 }}>또는</span>
+          <div style={{ flex: 1, height: 1, background: T.line }}/>
+        </div>
+
+        {/* 방법 3: 기존 현장 등록 */}
+        <button onClick={() => setMethod('existing')} style={{
+          padding: '18px 16px', borderRadius: 14,
+          border: `1.5px solid ${T.successSoft ? T.success + '55' : '#10B98155'}`,
+          background: T.successSoft || '#D1FAE5',
+          fontFamily: 'inherit', cursor: 'pointer',
+          display: 'flex', alignItems: 'center', gap: 14, textAlign: 'left',
+        }}>
+          <div style={{
+            width: 52, height: 52, borderRadius: 13,
+            background: T.success || '#10B981',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+          }}>
+            <Icon name="building" size={24} color="#fff" strokeWidth={2}/>
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 14.5, fontWeight: 700, color: T.success || '#059669', letterSpacing: -0.2 }}>
+              기존 현장 등록
+            </div>
+            <div style={{ fontSize: 11.5, color: T.ink2, marginTop: 5, lineHeight: 1.55 }}>
+              저장된 현장 목록에서 선택해<br/>새 도면을 등록합니다
+            </div>
+          </div>
+          <Icon name="chevronRight" size={16} color={T.success || '#059669'}/>
         </button>
       </div>
     </div>
@@ -336,6 +379,99 @@ function ImageUploadView({ T, onUploaded, onBack }) {
         }}>
           📌 네이버 부동산, 분양 홍보물, 건축도면 사진 모두 사용 가능합니다
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── 기존 현장 등록 뷰 ────────────────────────────────────────
+function ExistingSiteView({ T, sites, onPickSite, onSelectForImageUpload, onBack }) {
+  const [q, setQ] = React.useState('');
+  const sorted = [...sites].sort((a, b) => (b.regOrder || 0) - (a.regOrder || 0));
+  const filtered = q.trim()
+    ? sorted.filter(s => s.name.includes(q) || s.addr.includes(q))
+    : sorted;
+
+  const getBadge = (site) => site.hasDrawing
+    ? { text: '도면 있음', bg: T.brand.primarySoft, color: T.brand.primary }
+    : { text: '도면 없음', bg: T.warnSoft, color: T.warn };
+
+  return (
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, background: T.bg }}>
+      {/* 헤더 */}
+      <div style={{
+        padding: '10px 14px', background: '#fff',
+        borderBottom: `1px solid ${T.lineSoft}`,
+        display: 'flex', alignItems: 'center', gap: 10,
+      }}>
+        <button onClick={onBack} style={{
+          width: 34, height: 34, borderRadius: 10, border: 'none',
+          background: T.surfaceAlt, cursor: 'pointer', fontFamily: 'inherit',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+        }}>
+          <Icon name="chevronLeft" size={16} color={T.ink2} strokeWidth={2.2}/>
+        </button>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>기존 현장 등록</div>
+          <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>현장을 선택하면 새 도면을 등록합니다</div>
+        </div>
+      </div>
+
+      {/* 검색 */}
+      <div style={{ padding: '10px 14px 8px', background: '#fff', borderBottom: `1px solid ${T.lineSoft}` }}>
+        <div style={{ position: 'relative' }}>
+          <Icon name="search" size={14} color={T.ink4} style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)' }}/>
+          <input
+            type="text" value={q} onChange={e => setQ(e.target.value)}
+            placeholder="현장명 또는 주소 검색"
+            style={{
+              width: '100%', height: 38, padding: '0 10px 0 32px', borderRadius: 10,
+              border: `1px solid ${T.line}`, background: T.surfaceAlt,
+              fontSize: 12.5, outline: 'none', fontFamily: 'inherit',
+            }}
+          />
+        </div>
+      </div>
+
+      <div className="no-scrollbar" style={{ flex: 1, overflow: 'auto', padding: '10px 14px 14px' }}>
+        {filtered.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px 0', color: T.ink3, fontSize: 13 }}>
+            검색 결과가 없습니다
+          </div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+            {filtered.map(site => {
+              const badge = getBadge(site);
+              return (
+                <button key={site.id} onClick={() => site.hasDrawing ? onPickSite(site) : onSelectForImageUpload(site)} style={{
+                  background: '#fff', borderRadius: 12, padding: '10px 12px',
+                  border: `1px solid ${T.lineSoft}`, cursor: 'pointer',
+                  fontFamily: 'inherit', textAlign: 'left',
+                  display: 'flex', alignItems: 'center', gap: 10,
+                }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: 9,
+                    background: site.thumb + '22',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  }}>
+                    <Icon name="building" size={17} color={site.thumb} strokeWidth={2}/>
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13.5, fontWeight: 700, letterSpacing: -0.2 }}>{site.name}</div>
+                    <div style={{ fontSize: 10.5, color: T.ink3, marginTop: 1 }}>📍 {site.addr}</div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4, flexShrink: 0 }}>
+                    <span style={{
+                      fontSize: 10, fontWeight: 700, color: badge.color, background: badge.bg,
+                      padding: '3px 8px', borderRadius: 999,
+                    }}>{badge.text}</span>
+                    <span style={{ fontSize: 10, color: T.ink4 }}>{site.updatedAt}</span>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );
